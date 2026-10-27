@@ -45,6 +45,10 @@ class DiscoveredTools:
     def __init__(self, card, shop_url, client):
         if card.get("protocol") != "acp" or origin(card["endpoint"]) != origin(shop_url):
             raise ValueError("ACP endpoint must have the registered shop's origin")
+        shop_path = urlparse(shop_url).path.rstrip("/")
+        endpoint = urlparse(card["endpoint"])
+        if endpoint.query or ".." in endpoint.path.split("/") or (shop_path and not endpoint.path.startswith(shop_path + "/")):
+            raise ValueError("ACP endpoint escaped the registered merchant's namespace")
         caps = card.get("capabilities", {})
         if "checkout" not in caps.get("services", []) or "ap2-mandate" not in caps.get("payment_methods", []):
             raise ValueError("ACP/AP2 checkout capability missing")
@@ -115,7 +119,7 @@ def verify_checkout(session, order, receipt, shop_url, shop_pub):
         raise ValueError("checkout JWT is not signed by the registered shop")
     if (co.get("item"), whole(co.get("price")), co.get("task")) != (order["item"], whole(receipt["price"]), receipt["task"]):
         raise ValueError("checkout item, price or task differs from the authorized receipt")
-    if co.get("shop") != receipt["shop"] or origin(co["shop_url"]) != origin(shop_url):
+    if co.get("shop") != receipt["shop"] or co.get("shop_url", "").rstrip("/") != shop_url.rstrip("/"):
         raise ValueError("checkout payee changed")
     if co.get("currency") != "credits" or co.get("id") != session.get("id"):
         raise ValueError("checkout identity/currency mismatch")
@@ -135,16 +139,18 @@ def pay(order, shop_url, shop_pub, receipt, buyer_key, *, client=None, journal_d
     directory = Path(journal_dir or ".market/payments")
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / (hashlib.sha256(order["order"].encode()).hexdigest() + ".json")
+    fingerprint = hashlib.sha256(kit.canon({"shop": shop_url, "receipt": receipt,
+        "item": order["item"], "order": order["order"]})).hexdigest()
     if path.exists():
         prior = json.loads(path.read_text(encoding="utf-8"))
         event("payment_replay_blocked", order=order["order"], phase=prior["phase"])
-        return prior.get("mandate_receipt") if prior["phase"] == "paid" else None
+        return prior.get("mandate_receipt") if prior["phase"] == "paid" and prior.get("fingerprint") == fingerprint else None
     try:
         with path.open("x", encoding="utf-8") as output:
-            json.dump({"phase": "preparing"}, output)
+            json.dump({"phase": "preparing", "fingerprint": fingerprint}, output)
     except FileExistsError:
         return None
-    state = {"order": order["order"], "phase": "preparing"}
+    state = {"order": order["order"], "phase": "preparing", "fingerprint": fingerprint}
     def save(**fields):
         state.update(fields)
         tmp = path.with_suffix(".tmp")
@@ -166,6 +172,8 @@ def pay(order, shop_url, shop_pub, receipt, buyer_key, *, client=None, journal_d
             "line_items": [{"id": order["item"], "quantity": 1}], "receipt": normalized})
         save(phase="created", session=session["id"])
         session = registry.call("get_checkout_session", {}, session["id"])
+        if session.get("status") != "ready_for_payment":
+            raise ValueError("checkout is not ready for payment")
         co = verify_checkout(session, order, normalized, shop_url, shop_pub)
         token = session["checkout_jwt"]
         hashed = kit.b64url(hashlib.sha256(token.encode()).digest())

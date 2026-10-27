@@ -94,6 +94,17 @@ async def read_price(text, *, role, ask=None, metadata=None):
     def check(answer):
         if answer["price"] is not None:
             whole(answer["price"])
+    permits = ROOT / ".market" / "semantic-permits"
+    permits.mkdir(parents=True, exist_ok=True)
+    for slot in range(6):
+        try:
+            (permits / f"{int(time.time()) // 3600}-{slot}").touch(exist_ok=False)
+            break
+        except FileExistsError:
+            continue
+    else:
+        event("semantic_quota_exhausted", role=role)
+        return None
     answer = await decide("semantic_price_only", {
         "role": role, "current_ask": ask,
         "instruction": "Extract only the genuine current offer/ask, not delivery days, old prices or "

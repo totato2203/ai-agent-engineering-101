@@ -1,0 +1,12 @@
+{"at": 1793106046.6325426, "event": "seller_open", "task": "3ff59290-0f55-4eaf-800d-b1d6fe550b53", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793106046.6415405, "event": "seller_agreed", "task": "3ff59290-0f55-4eaf-800d-b1d6fe550b53", "item": "lamp", "price": 100, "reserve": 100}
+{"at": 1793106046.6614654, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
+{"at": 1793106046.6764252, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
+{"at": 1793106046.6923835, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
+{"at": 1793106046.6993642, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "refused"}
+{"at": 1793106046.713327, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
+{"at": 1793106046.7272894, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
+{"at": 1793106046.734271, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "order expired"}
+{"at": 1793106046.749231, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
+{"at": 1793106046.7552147, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "refused"}
+{"at": 1793106046.756212, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "refused"}
