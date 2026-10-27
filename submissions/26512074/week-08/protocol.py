@@ -79,6 +79,13 @@ class A2AClient:
         endpoint = interfaces[0].get("url", "")
         if urlparse(endpoint).scheme not in ("http", "https"):
             raise ProtocolError("Agent Card endpoint is not an HTTP URL")
+        advertised, registered = urlparse(endpoint), urlparse(self.base_url)
+        port = lambda value: value.port or (443 if value.scheme == "https" else 80)
+        if (advertised.scheme, advertised.hostname, port(advertised)) != (registered.scheme, registered.hostname, port(registered)):
+            raise ProtocolError("Agent Card redirected A2A away from the registered shop origin")
+        namespace = registered.path.rstrip("/")
+        if namespace and not (advertised.path == namespace or advertised.path.startswith(namespace + "/")):
+            raise ProtocolError("Agent Card escaped the registered shop namespace")
         self.endpoint = endpoint
         emit("card_read", shop=self.label, name=card.get("name"),
              skills=card.get("skills"), version="1.0")

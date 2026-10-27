@@ -9,6 +9,7 @@ import shutil
 import sys
 import threading
 import time
+import re
 
 from market_tools import ROOT, build_context
 from payments import SchemaAcpShop, pay
@@ -56,7 +57,9 @@ class StrategicMarket(kit.Market):
                 self.settled("seller", sent["order"], checkout["item"], checkout["price"])
             if method == "POST" and path == "/api/results" and data.get("verified") and sent.get("mandate_receipt"):
                 receipt = sent["receipt"]
-                self.settled("buyer", sent["order"], receipt["item"], receipt["price"])
+                is_new = self.settled("buyer", sent["order"], receipt["item"], receipt["price"])
+                if not is_new:
+                    return response
                 memory_path = ROOT / "trade-memory.json"
                 with MEMORY_LOCK:
                     memory = json.loads(memory_path.read_text(encoding="utf-8"))
@@ -79,7 +82,7 @@ class StrategicMarket(kit.Market):
             try:
                 (journal / hashlib.sha256(marker.encode()).hexdigest()).touch(exist_ok=False)
             except FileExistsError:
-                return
+                return False
             self.metrics[f"{role}_settled"] += 1
             self.metrics["seller_profit" if role == "seller" else "buyer_spend"] += price - RESERVES[item] if role == "seller" else price
             self.metrics["settlements"].append({"role": role, "item": item, "price": price, "settled": True, "at": time.time()})
@@ -92,6 +95,7 @@ class StrategicMarket(kit.Market):
             if not self.refresh_pending and self.refresh_count < 6 and time.time() - self.refresh_at >= 1800:
                 self.refresh_pending = True
                 threading.Thread(target=self.refresh, daemon=True).start()
+            return True
 
     def refresh(self):
         try:
@@ -112,10 +116,15 @@ def preflight():
     load_policy()
     assert kit.KIT_VERSION == "3"
     previous = ROOT.parent / "week-07"
-    return {"ready": True, "published": False, "kit": kit.KIT_VERSION,
-            "prior_keys_available": all((previous / name).exists() for name in ("shop_key.pem", "buyer_key.pem")),
-            "prior_claim_available": (previous / ".market/owner-code.txt").exists(),
-            "model_policy": "model-policy.json", "external_posts": 0,
+    keys = all((previous / name).exists() for name in ("shop_key.pem", "buyer_key.pem"))
+    claim = (previous / ".market/owner-code.txt").exists()
+    tunnel = (previous / "tools/cloudflared.exe").exists() if os.name == "nt" else shutil.which("cloudflared") is not None
+    for name in ("shop_key.pem", "buyer_key.pem"):
+        if (ROOT / name).exists() and (previous / name).exists() and (ROOT / name).read_bytes() != (previous / name).read_bytes():
+            raise ValueError("local key differs from the existing market identity")
+    return {"ready": keys and claim and tunnel, "published": False, "kit": kit.KIT_VERSION,
+            "prior_keys_available": keys, "prior_claim_available": claim, "tunnel_available": tunnel,
+            "model_policy": "model-policy.json", "market_posts": 0,
             "round3_results": "pending; no registration, trade or settlement made by week-08"}
 
 
@@ -127,11 +136,13 @@ if __name__ == "__main__":
     info = preflight()
     if not args.publish:
         print(json.dumps(info, ensure_ascii=True))
-        raise SystemExit(0)
+        raise SystemExit(0 if info["ready"] else 1)
     # The handoff script sets this only after an explicit -Publish switch and
     # after the user has authorized replacing the previous live operator.
     if os.environ.get("ROUND3_RELEASE_APPROVED") != "yes":
         raise SystemExit("Publication requires the explicit start-round3.ps1 -Publish handoff.")
+    if not info["ready"]:
+        raise SystemExit("Required local identity/tunnel files are missing; no registration performed.")
     with kit.httpx.Client(timeout=20) as client:
         board = client.get(MARKET + "/api/board?round=3").json()
     if board.get("current", 0) < 3:
@@ -149,6 +160,12 @@ if __name__ == "__main__":
     os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + str(cloudflared) + os.pathsep + os.environ["PATH"]
     os.environ["PYTHONIOENCODING"] = "utf-8"
     kit.Market, kit.AcpShop, kit.acp_pay = StrategicMarket, SchemaAcpShop, pay
+    original_log = kit.log
+    def private_log(line=""):
+        # Preserve settlement evidence while keeping private authorization limits
+        # out of logs that will later be committed to a public repository.
+        original_log(re.sub(r"(\[order [^\]]+\].*?\bbudget\s+)\d+(?:\.\d+)?", r"\1[private]", str(line)))
+    kit.log = private_log
     if os.name == "nt":
         ctypes.windll.kernel32.SetThreadExecutionState(0x80000001)
     try:

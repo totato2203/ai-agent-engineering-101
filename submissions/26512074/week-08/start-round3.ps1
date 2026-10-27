@@ -6,6 +6,13 @@ if (-not $Publish) {
     exit $LASTEXITCODE
 }
 if (-not $ReplaceWeek07) { throw 'Publication reuses the week-07 identity. Explicit -ReplaceWeek07 is required.' }
+$week08Preflight = (& $week08Python -X utf8 (Join-Path $PSScriptRoot 'launch.py')) | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or -not $week08Preflight.ready) { throw 'Preflight failed; previous deployment was left untouched.' }
+$week08PidFile = Join-Path $PSScriptRoot '.market/operator.pid'
+if (Test-Path -LiteralPath $week08PidFile) {
+    $week08Existing = Get-Process -Id ([int](Get-Content -LiteralPath $week08PidFile)) -ErrorAction SilentlyContinue
+    if ($week08Existing) { throw 'A week-08 operator may already be running. Verify it before starting another.' }
+}
 # Check the round BEFORE stopping the previous running assignment.
 $week08Board = Invoke-RestMethod 'https://market.ourolabs.ai/api/board?round=3'
 if ($week08Board.current -lt 3) { throw 'Round 3 is not open. Previous process was left running.' }

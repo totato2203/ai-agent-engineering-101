@@ -113,9 +113,9 @@ async def read_price(text, *, role, ask=None, metadata=None):
     return answer["price"]
 
 
-def event(name, **fields):
-    emit(name, **fields)
+def event(event_name, **fields):
+    emit(event_name, **fields)
     path = ROOT / "logs" / "execution.jsonl"
     path.parent.mkdir(exist_ok=True)
     with path.open("a", encoding="utf-8") as output:
-        output.write(json.dumps({"at": time.time(), "event": name, **fields}, ensure_ascii=True) + "\n")
+        output.write(json.dumps({"at": time.time(), "event": event_name, **fields}, ensure_ascii=True) + "\n")

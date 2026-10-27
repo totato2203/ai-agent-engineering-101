@@ -10,3 +10,37 @@
 {"at": 1793106046.749231, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "event() got multiple values for argument 'name'"}
 {"at": 1793106046.7552147, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "refused"}
 {"at": 1793106046.756212, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "refused"}
+{"at": 1793106102.3170717, "event": "seller_open", "task": "b2c8e2a4-6c16-442c-8340-3c51aa562ade", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793106102.32505, "event": "seller_agreed", "task": "b2c8e2a4-6c16-442c-8340-3c51aa562ade", "item": "lamp", "price": 100, "reserve": 100}
+{"at": 1793106102.34503, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793106102.349014, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_cfa9bde1437512d5", "status": 200}
+{"at": 1793106102.3520024, "event": "acp_tool", "name": "cancel_checkout_session", "session": "cs_cfa9bde1437512d5", "status": 200}
+{"at": 1793106102.3530009, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "displayed total differs from the signed checkout"}
+{"at": 1793106102.36696, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793106102.370927, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_0fb524fe05280e1c", "status": 200}
+{"at": 1793106102.3749466, "event": "acp_tool", "name": "cancel_checkout_session", "session": "cs_0fb524fe05280e1c", "status": 200}
+{"at": 1793106102.3749466, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "checkout JWT is not signed by the registered shop"}
+{"at": 1793106102.388902, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793106102.3928964, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_45a437fdae547c06", "status": 200}
+{"at": 1793106102.4038696, "event": "payment_refused", "order": "local-o-test", "phase": "unknown", "reason": "simulated lost payment response"}
+{"at": 1793106102.4108558, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "unknown"}
+{"at": 1793106102.4238136, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793106102.4277976, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_25f55e7906f979ff", "status": 200}
+{"at": 1793106102.4367738, "event": "acp_tool", "name": "complete_checkout_session", "session": "cs_25f55e7906f979ff", "status": 200}
+{"at": 1793106102.4377494, "event": "payment_settled", "order": "local-o-test", "amount": 110, "ledger": 1}
+{"at": 1793106102.451711, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793106102.4547026, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_0623612dec6eb463", "status": 200}
+{"at": 1793106102.4587271, "event": "acp_tool", "name": "cancel_checkout_session", "session": "cs_0623612dec6eb463", "status": 200}
+{"at": 1793106102.4587271, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "checkout exceeds the open mandate or budget"}
+{"at": 1793106102.4656758, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "order expired"}
+{"at": 1793106102.4786737, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793106102.482651, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_425a7f90a9007a16", "status": 200}
+{"at": 1793106102.491629, "event": "acp_tool", "name": "complete_checkout_session", "session": "cs_425a7f90a9007a16", "status": 200}
+{"at": 1793106102.492602, "event": "payment_settled", "order": "local-o-test", "amount": 110, "ledger": 1}
+{"at": 1793106102.499605, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "paid"}
+{"at": 1793106102.5006075, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "paid"}
+{"at": 1793106208.879841, "event": "supplier_choice", "name": "local-seller", "score": 0.6508695652173913, "evidence": {"own_settled": 0, "own_attempts": 0, "observed_price": 115, "public_evidence": 0.6, "concentration": 0.0}, "exploration": false, "reason": "Model-weighted measured settlements, price and concentration; advertisements cannot change payment authority."}
+{"at": 1793106208.883857, "event": "seller_open", "task": "996d0bfc-6680-4a42-a17a-29388176b98d", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793106208.887846, "event": "seller_agreed", "task": "996d0bfc-6680-4a42-a17a-29388176b98d", "item": "lamp", "price": 115, "reserve": 100}
+{"at": 1793106208.9007835, "event": "supplier_choice", "name": "local-seller", "score": 0.6508695652173913, "evidence": {"own_settled": 0, "own_attempts": 0, "observed_price": 115, "public_evidence": 0.6, "concentration": 0.0}, "exploration": false, "reason": "Model-weighted measured settlements, price and concentration; advertisements cannot change payment authority."}
+{"at": 1793106208.9037762, "event": "seller_open", "task": "cd61b273-8332-4bf9-b984-1983579c423c", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
