@@ -32,7 +32,8 @@ class StrategicMarket(kit.Market):
         super().__init__(*args, **kwargs)
         self.last_order = 0
         self.metrics = json.loads((ROOT / "metrics.json").read_text(encoding="utf-8")) if (ROOT / "metrics.json").exists() else {
-            "seller_settled": 0, "buyer_settled": 0, "seller_profit": 0, "buyer_spend": 0, "settlements": []}
+            "seller_settled": 0, "buyer_settled": 0, "seller_profit": 0, "seller_revenue": 0,
+            "buyer_spend": 0, "wallet_net_flow": 0, "settlements": []}
         self.refresh_at, self.refresh_count, self.day = time.time(), 0, int(time.time()) // 86400
         self.refresh_pending = False
 
@@ -85,6 +86,9 @@ class StrategicMarket(kit.Market):
                 return False
             self.metrics[f"{role}_settled"] += 1
             self.metrics["seller_profit" if role == "seller" else "buyer_spend"] += price - RESERVES[item] if role == "seller" else price
+            if role == "seller":
+                self.metrics["seller_revenue"] = self.metrics.get("seller_revenue", 0) + price
+            self.metrics["wallet_net_flow"] = self.metrics.get("seller_revenue", 0) - self.metrics["buyer_spend"]
             self.metrics["settlements"].append({"role": role, "item": item, "price": price, "settled": True, "at": time.time()})
             self.metrics["settlements"] = self.metrics["settlements"][-100:]
             write(ROOT / "metrics.json", self.metrics)
