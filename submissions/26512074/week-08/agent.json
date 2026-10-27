@@ -1,0 +1,6 @@
+{
+  "harness": "Codex gpt-5.6-terra low; batch meta-policy plus bounded execution tools; genuine model fallback only for ambiguous price text",
+  "seller": {"cmd": "python seller.py --port {port}"},
+  "buyer": {"cmd": "python market_buyer.py --url {url} --item {item} --budget {budget}"},
+  "market_buyer": {"cmd": "python market_buyer.py --shops {shops} --item {item} --budget {budget}"}
+}

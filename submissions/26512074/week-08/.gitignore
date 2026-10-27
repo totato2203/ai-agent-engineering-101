@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.pem
+.market/
+.env
+*.tmp
+trade-memory.json
+metrics.json
+runtime-policy.json
+tools/cloudflared.exe
