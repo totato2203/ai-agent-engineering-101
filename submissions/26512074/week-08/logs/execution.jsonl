@@ -112,3 +112,47 @@
 {"at": 1793171296.0737443, "event": "payment_settled", "order": "local-o-test", "amount": 110, "ledger": 1}
 {"at": 1793171296.080726, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "paid"}
 {"at": 1793171296.081739, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "paid"}
+{"at": 1793173232.755928, "event": "supplier_choice", "name": "local-seller", "score": 0.6508695652173913, "evidence": {"own_settled": 0, "own_attempts": 0, "observed_price": 115, "public_evidence": 0.6, "concentration": 0.0}, "exploration": false, "reason": "Model-weighted measured settlements, price and concentration; advertisements cannot change payment authority."}
+{"at": 1793173232.7589488, "event": "loyalty_negotiation", "name": "local-seller", "mode": "game_bluff", "claim_enforced": false, "signed_exclusive_contract": false, "subsequent_supplier_selection": "independent"}
+{"at": 1793173232.7649028, "event": "seller_open", "task": "19c4a2ad-2f1d-4314-9894-82e7f0b5dd47", "item": "lamp", "ask": 114, "policy": {"opening_markup": 14, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793173232.7649028, "event": "loyalty_discount", "task": "19c4a2ad-2f1d-4314-9894-82e7f0b5dd47", "source": "pledge_only", "discount": 1, "reserve": 100}
+{"at": 1793173232.7728822, "event": "seller_agreed", "task": "19c4a2ad-2f1d-4314-9894-82e7f0b5dd47", "item": "lamp", "price": 114, "reserve": 100}
+{"at": 1793173232.7878416, "event": "supplier_choice", "name": "local-seller", "score": 0.6508695652173913, "evidence": {"own_settled": 0, "own_attempts": 0, "observed_price": 115, "public_evidence": 0.6, "concentration": 0.0}, "exploration": false, "reason": "Model-weighted measured settlements, price and concentration; advertisements cannot change payment authority."}
+{"at": 1793173232.789837, "event": "loyalty_negotiation", "name": "local-seller", "mode": "game_bluff", "claim_enforced": false, "signed_exclusive_contract": false, "subsequent_supplier_selection": "independent"}
+{"at": 1793173232.7938259, "event": "seller_open", "task": "d9740b1a-188a-469f-a525-1a3090811688", "item": "lamp", "ask": 114, "policy": {"opening_markup": 14, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793173232.7938259, "event": "loyalty_discount", "task": "d9740b1a-188a-469f-a525-1a3090811688", "source": "pledge_only", "discount": 1, "reserve": 100}
+{"at": 1793173233.3090556, "event": "seller_open", "task": "1dfbe71a-fcef-4839-be24-7f364f833b52", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 0, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793173233.317037, "event": "seller_agreed", "task": "1dfbe71a-fcef-4839-be24-7f364f833b52", "item": "lamp", "price": 100, "reserve": 100}
+{"at": 1793173233.3339915, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793173233.338116, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_af157043660f2e68", "status": 200}
+{"at": 1793173233.3421052, "event": "acp_tool", "name": "cancel_checkout_session", "session": "cs_af157043660f2e68", "status": 200}
+{"at": 1793173233.3421052, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "displayed total differs from the signed checkout"}
+{"at": 1793173233.3570657, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793173233.3620527, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_75bbd7c38e5c1c6d", "status": 200}
+{"at": 1793173233.3660417, "event": "acp_tool", "name": "cancel_checkout_session", "session": "cs_75bbd7c38e5c1c6d", "status": 200}
+{"at": 1793173233.3670392, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "checkout JWT is not signed by the registered shop"}
+{"at": 1793173233.3800044, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793173233.3839936, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_1950f96872300491", "status": 200}
+{"at": 1793173233.3949647, "event": "payment_refused", "order": "local-o-test", "phase": "unknown", "reason": "simulated lost payment response"}
+{"at": 1793173233.401946, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "unknown"}
+{"at": 1793173233.4149115, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793173233.418901, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_c067aa87dedfc10f", "status": 200}
+{"at": 1793173233.4278774, "event": "acp_tool", "name": "complete_checkout_session", "session": "cs_c067aa87dedfc10f", "status": 200}
+{"at": 1793173233.428875, "event": "payment_settled", "order": "local-o-test", "amount": 110, "ledger": 1}
+{"at": 1793173233.4418395, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793173233.4458292, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_4a1520b9a24ce066", "status": 200}
+{"at": 1793173233.4498186, "event": "acp_tool", "name": "cancel_checkout_session", "session": "cs_4a1520b9a24ce066", "status": 200}
+{"at": 1793173233.450816, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "checkout exceeds the open mandate or budget"}
+{"at": 1793173233.4567997, "event": "payment_refused", "order": "local-o-test", "phase": "refused", "reason": "order expired"}
+{"at": 1793173233.4707627, "event": "acp_tool", "name": "create_checkout_session", "session": null, "status": 201}
+{"at": 1793173233.4747531, "event": "acp_tool", "name": "get_checkout_session", "session": "cs_2b6d42e49611fca9", "status": 200}
+{"at": 1793173233.4827313, "event": "acp_tool", "name": "complete_checkout_session", "session": "cs_2b6d42e49611fca9", "status": 200}
+{"at": 1793173233.484726, "event": "payment_settled", "order": "local-o-test", "amount": 110, "ledger": 1}
+{"at": 1793173233.4917068, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "paid"}
+{"at": 1793173233.4927049, "event": "payment_replay_blocked", "order": "local-o-test", "phase": "paid"}
+{"at": 1793173233.529606, "event": "seller_open", "task": "fa04e488-c22a-417e-9598-d3563abd72e5", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 5, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793173233.5335953, "event": "seller_agreed", "task": "fa04e488-c22a-417e-9598-d3563abd72e5", "item": "lamp", "price": 115, "reserve": 100}
+{"at": 1793173233.5463047, "event": "seller_open", "task": "b66cf307-a884-4abc-82a1-275972b8207e", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 5, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793173233.5687816, "event": "seller_open", "task": "41c8ba46-8860-4f00-934e-bb724011e81e", "item": "lamp", "ask": 112, "policy": {"opening_markup": 12, "minimum_markup": 2, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}
+{"at": 1793173233.5697794, "event": "loyalty_discount", "task": "41c8ba46-8860-4f00-934e-bb724011e81e", "source": "verified_settled_repeat", "discount": 3, "reserve": 100}
+{"at": 1793173233.5807498, "event": "seller_open", "task": "6ecdc8c3-3871-4899-aba3-e48692197dbc", "item": "lamp", "ask": 115, "policy": {"opening_markup": 15, "minimum_markup": 5, "concession_step": 5, "floor_after": 3, "max_rounds": 5}}

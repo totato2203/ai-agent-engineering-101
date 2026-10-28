@@ -115,11 +115,13 @@ class A2AClient:
              metadata=task.get("metadata", {}), artifacts=task.get("artifacts", []))
         return task
 
-    async def send(self, text, task_id=None):
+    async def send(self, text, task_id=None, metadata=None):
         message = {"role": "ROLE_USER", "messageId": uuid.uuid4().hex,
                    "parts": [{"text": text}]}
         if task_id:
             message["taskId"] = task_id
+        if metadata:
+            message["metadata"] = metadata
         task = await self.rpc("SendMessage", {"message": message})
         if task_id and task["id"] != task_id:
             raise ProtocolError("seller changed the task id during negotiation")

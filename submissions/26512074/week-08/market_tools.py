@@ -60,6 +60,9 @@ def build_context():
         result["supplier_summary"] = [{"name": name, "settled": data.get("settled", 0),
             "blocked": data.get("blocked", False), "prices": data.get("prices", {})}
             for name, data in sorted(memory["shops"].items(), key=lambda row: -row[1].get("settled", 0))[:8]]
+    intel = ROOT / ".market/competitor-intel.json"
+    if intel.exists():
+        result["competitor_intel"] = json.loads(intel.read_text(encoding="utf-8"))
     return result
 
 

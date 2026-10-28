@@ -34,6 +34,7 @@ class Competition:
                 CREATE TABLE IF NOT EXISTS agreements(name TEXT PRIMARY KEY,pubkey TEXT,expires REAL,terms TEXT);
                 CREATE TABLE IF NOT EXISTS returns(id TEXT PRIMARY KEY,name TEXT,margin REAL);
                 CREATE TABLE IF NOT EXISTS spending(id TEXT PRIMARY KEY,name TEXT,extra REAL,state TEXT);
+                CREATE TABLE IF NOT EXISTS loyalty_claims(source TEXT PRIMARY KEY,task TEXT UNIQUE,discount INT);
             ''')
 
     @contextmanager
@@ -87,6 +88,18 @@ class Competition:
             row = db.execute("SELECT item FROM quotes WHERE task=?", (task,)).fetchone()
             if row:
                 db.execute("UPDATE quotes SET settled=1,closed=1,profit=? WHERE task=?", (price - RESERVES[row["item"]], task))
+
+    def redeem_loyalty(self, source, task, requested):
+        if source == task or type(requested) is not int or not 0 < requested <= 5:
+            return False
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if not db.execute("SELECT 1 FROM quotes WHERE task=? AND settled=1", (source,)).fetchone():
+                return False
+            if db.execute("SELECT 1 FROM loyalty_claims WHERE source=? OR task=?", (source, task)).fetchone():
+                return False
+            db.execute("INSERT INTO loyalty_claims VALUES(?,?,?)", (source, task, requested))
+        return True
 
     def accept(self, agreement, signature, registered_key):
         required = {"partner", "beneficiary", "pubkey", "expires", "terms", "nonce"}

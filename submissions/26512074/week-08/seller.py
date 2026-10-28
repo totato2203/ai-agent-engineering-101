@@ -20,6 +20,12 @@ from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from policy import RESERVES, event, load_policy, read_price
 from signing import sign_receipt
 from competition import live_competition, TERMS
+from growth import settings as growth_settings, pledged, discount_price, courtesy_gift, issue_token, verify_token
+
+
+def shop_key():
+    from cryptography.hazmat.primitives import serialization
+    return serialization.load_pem_private_key(Path("shop_key.pem").read_bytes(), password=None)
 
 
 class Seller(AgentExecutor):
@@ -36,6 +42,7 @@ class Seller(AgentExecutor):
             up = TaskUpdater(event_queue=event_queue, task_id=task.id, context_id=task.context_id)
             say = lambda message, **meta: up.new_agent_message(parts=[new_text_part(message)], metadata=meta)
             text = get_message_text(context.message) or ""
+            metadata = dict(getattr(context.message, "metadata", {}) or {})
             state = self.tasks.get(task.id)
             if state is None:
                 item = next((i for i in RESERVES if re.search(r"\b" + i + r"\b", text, re.I)), None)
@@ -45,10 +52,27 @@ class Seller(AgentExecutor):
                 policy = load_policy()["items"][item]
                 if self.competition:
                     policy = self.competition.quote(task.id, item, policy)
+                growth = growth_settings()
+                requested = growth["exclusive_discount"] if pledged(text, metadata) else 0
+                source = "pledge_only" if requested else "none"
+                if self.competition and metadata.get("loyalty_token"):
+                    try:
+                        prior = verify_token(metadata["loyalty_token"], shop_key().public_key(), self.name)
+                        if self.competition.redeem_loyalty(prior, task.id, growth["repeat_discount"]):
+                            requested = max(requested, growth["repeat_discount"])
+                            source = "verified_settled_repeat"
+                    except Exception:
+                        event("loyalty_token_ignored", task=task.id)
+                ask, discount = discount_price(RESERVES[item] + policy["opening_markup"], RESERVES[item], requested)
+                policy = {**policy, "opening_markup": ask - RESERVES[item],
+                          "minimum_markup": max(0, policy["minimum_markup"] - discount)}
                 state = {"item": item, "policy": policy, "round": 0,
-                         "ask": RESERVES[item] + policy["opening_markup"], "terminal": False}
+                         "ask": ask, "terminal": False, "loyalty_discount": discount,
+                         "loyalty_source": source}
                 self.tasks[task.id] = state
                 event("seller_open", task=task.id, item=item, ask=state["ask"], policy=policy)
+                if discount:
+                    event("loyalty_discount", task=task.id, source=source, discount=discount, reserve=RESERVES[item])
             else:
                 if state["terminal"]:
                     raise ValueError("task is terminal")
@@ -61,6 +85,9 @@ class Seller(AgentExecutor):
                         rec = sign_receipt({"shop": self.name, "item": item, "price": offer, "task": task.id})
                         state["terminal"] = True
                         await up.add_artifact(parts=[new_data_part(rec)], name="receipt")
+                        if growth_settings()["gift_enabled"]:
+                            token = issue_token(rec, shop_key()) if self.competition else None
+                            await up.add_artifact(parts=[new_data_part(courtesy_gift(item, token))], name="guild-gift")
                         await up.complete(say(f"Agreed {offer}. Signed receipt issued; only ACP settlement counts as payment."))
                         event("seller_agreed", task=task.id, item=item, price=offer, reserve=RESERVES[item])
                         return
@@ -73,8 +100,10 @@ class Seller(AgentExecutor):
                         return
                     state["ask"] = max(threshold, state["ask"] - plan["concession_step"])
             await up.requires_input(say(
-                f"{state['item']}: exact price, no additional fees. Asking {state['ask']}",
-                ask=state["ask"], item_id=state["item"]))
+                f"{state['item']}: exact price, no additional fees. "
+                "Optional exclusive-customer pledge pricing and settled-repeat coupons; a tiny digital desk-cat comes free. "
+                f"Asking {state['ask']}",
+                ask=state["ask"], item_id=state["item"], loyalty_discount=state["loyalty_discount"]))
 
     async def cancel(self, context, event_queue):
         task = context.current_task
@@ -115,7 +144,8 @@ def build(port, name="totato2203"):
     card = AgentCard(name=name,
         description="IN-GAME: The Price Alchemist Guild. Your credits buy exact signed totals, not rumors. "
                     "Fast ACP/AP2 checkout, negotiated prices and optional signed reciprocal-procurement offers "
-                    "at /.well-known/alliance.json. No platform endorsement or forced ratings.",
+                    "at /.well-known/alliance.json. Exclusive-pledge discounts, settled-repeat coupons and a free digital desk-cat. "
+                    "No platform endorsement or forced ratings.",
         version="3.0.0", default_input_modes=["text/plain"],
         default_output_modes=["text/plain", "application/json"], capabilities=AgentCapabilities(streaming=False),
         supported_interfaces=[AgentInterface(protocol_binding="JSONRPC", protocol_version="1.0", url=f"http://127.0.0.1:{port}/")],

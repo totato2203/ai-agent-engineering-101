@@ -10,6 +10,7 @@ from policy import RESERVES, event, load_policy, read_price
 from protocol import A2AClient, receipt, task_state, task_text
 from signing import verify_receipt, whole
 from competition import live_competition
+from growth import opening_message
 
 MEMORY = Path("trade-memory.json")
 
@@ -84,7 +85,11 @@ async def buy(selected, item, budget, memory, plan):
     memory_write(memory)
     async with A2AClient(selected["url"], timeout=60, label=selected["name"]) as client:
         await client.discover()
-        task = await client.send(f"I want to buy a {item}. Quote the current total; no extra fees.")
+        opening, metadata, claim = opening_message(item, local)
+        observation["loyalty_claim"] = claim
+        event("loyalty_negotiation", name=selected["name"], **claim)
+        memory_write(memory)
+        task = await client.send(opening, metadata=metadata)
         observation["task"] = task["id"]
         last_offer = None
         for turn in range(plan["max_rounds"] + 1):
@@ -99,6 +104,11 @@ async def buy(selected, item, budget, memory, plan):
                 if keys.get(selected["url"].rstrip("/")):
                     verify_receipt(rec, keys[selected["url"].rstrip("/")])
                 observation.update(state="agreed_unsettled", price=rec["price"])
+                for artifact in task.get("artifacts", []):
+                    for part in artifact.get("parts", []):
+                        gift = part.get("data", {})
+                        if isinstance(gift, dict) and gift.get("kind") == "courtesy-note" and isinstance(gift.get("loyalty_token"), str) and len(gift["loyalty_token"]) <= 4096:
+                            local["loyalty_token"] = gift["loyalty_token"]
                 memory_write(memory)
                 return rec, "A2A receipt matched the authorized price and task; settlement is checked separately."
             if state in ("TASK_STATE_REJECTED", "TASK_STATE_CANCELED", "TASK_STATE_FAILED"):

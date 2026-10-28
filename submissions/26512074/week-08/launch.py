@@ -16,6 +16,8 @@ from payments import SchemaAcpShop, pay
 from policy import event, load_policy, prepare, RESERVES
 from vendor import market_kit_v3 as kit
 from competition import live_competition
+from scouting import record_scouting
+from growth import settings as growth_settings
 
 MARKET = "https://market.ourolabs.ai"
 MEMORY_LOCK = threading.RLock()
@@ -38,6 +40,7 @@ class StrategicMarket(kit.Market):
         self.refresh_at, self.refresh_count, self.day = time.time(), 0, int(time.time()) // 86400
         self.refresh_pending = False
         self.last_cooperation_scan = 0
+        self.last_scout = 0
 
     def call(self, method, path, role="buyer", **kwargs):
         if method == "POST" and path == "/api/orders":
@@ -53,6 +56,14 @@ class StrategicMarket(kit.Market):
             if method == "GET" and path == "/api/shops":
                 write(ROOT / ".market/shop-keys.json", {s["url"].rstrip("/"): s["pubkey"]
                     for s in data["shops"] if s.get("pubkey")})
+                if time.time() - self.last_scout >= 300:
+                    self.last_scout = time.time()
+                    try:
+                        observed_board = super().call("GET", "/api/board?round=3").json()
+                        intel = record_scouting(observed_board)
+                        event("competitors_observed", observed_round=intel["observed_round"], leaders=len(intel["leaders"]))
+                    except Exception as exc:
+                        event("scouting_failed", error=type(exc).__name__)
                 if time.time() - self.last_cooperation_scan >= 60 and live_competition():
                     self.last_cooperation_scan = time.time()
                     ledger = super().call("GET", "/api/ledger?after=-200").json()
@@ -138,6 +149,7 @@ class StrategicMarket(kit.Market):
 
 def preflight():
     load_policy()
+    growth = growth_settings()
     assert kit.KIT_VERSION == "3"
     previous = ROOT.parent / "week-07"
     keys = all((previous / name).exists() for name in ("shop_key.pem", "buyer_key.pem"))
@@ -149,6 +161,7 @@ def preflight():
     return {"ready": keys and claim and tunnel, "published": False, "kit": kit.KIT_VERSION,
             "prior_keys_available": keys, "prior_claim_available": claim, "tunnel_available": tunnel,
             "model_policy": "model-policy.json", "market_posts": 0,
+            "growth_tactics": growth,
             "round3_results": "pending; no registration, trade or settlement made by week-08"}
 
 
