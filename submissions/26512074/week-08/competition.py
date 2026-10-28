@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import sqlite3
 import time
+from contextlib import contextmanager
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -35,10 +36,15 @@ class Competition:
                 CREATE TABLE IF NOT EXISTS spending(id TEXT PRIMARY KEY,name TEXT,extra REAL,state TEXT);
             ''')
 
+    @contextmanager
     def connect(self):
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
-        return db
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def quote(self, task, item, base):
         reserve = RESERVES[item]
@@ -49,7 +55,7 @@ class Competition:
                 FROM quotes WHERE item=? AND (settled=1 OR closed=1 OR opened<?) GROUP BY markup''',
                 (item, time.time() - 300)).fetchall()
             stats = {r["markup"]: dict(r) for r in rows}
-            won = sum(r["wins"] for r in rows)
+            won = db.execute("SELECT COUNT(*) FROM quotes WHERE settled=1").fetchone()[0]
             total = sum(r["n"] for r in rows)
             if won < 20:
                 # Build a customer base without betting every opening on a high anchor.
@@ -69,7 +75,7 @@ class Competition:
         policy = dict(base)
         policy["opening_markup"] = markup
         # Do not immediately accept a first floor offer while quoting a premium.
-        policy["minimum_markup"] = max(base["minimum_markup"], min(markup, max(1, markup // 3))) if markup else 0
+        policy["minimum_markup"] = min(markup, max(base["minimum_markup"], max(1, markup // 3))) if markup else 0
         return policy
 
     def close_quote(self, task):
