@@ -15,6 +15,7 @@ from market_tools import ROOT, build_context
 from payments import SchemaAcpShop, pay
 from policy import event, load_policy, prepare, RESERVES
 from vendor import market_kit_v3 as kit
+from competition import live_competition
 
 MARKET = "https://market.ourolabs.ai"
 MEMORY_LOCK = threading.RLock()
@@ -36,6 +37,7 @@ class StrategicMarket(kit.Market):
             "buyer_spend": 0, "wallet_net_flow": 0, "settlements": []}
         self.refresh_at, self.refresh_count, self.day = time.time(), 0, int(time.time()) // 86400
         self.refresh_pending = False
+        self.last_cooperation_scan = 0
 
     def call(self, method, path, role="buyer", **kwargs):
         if method == "POST" and path == "/api/orders":
@@ -51,11 +53,25 @@ class StrategicMarket(kit.Market):
             if method == "GET" and path == "/api/shops":
                 write(ROOT / ".market/shop-keys.json", {s["url"].rstrip("/"): s["pubkey"]
                     for s in data["shops"] if s.get("pubkey")})
+                if time.time() - self.last_cooperation_scan >= 60 and live_competition():
+                    self.last_cooperation_scan = time.time()
+                    ledger = super().call("GET", "/api/ledger?after=-200").json()
+                    entries = ledger if isinstance(ledger, list) else ledger.get("entries", [])
+                    order_rounds = {entry.get("data", {}).get("order"): entry.get("data", {}).get("round")
+                                    for entry in entries if entry.get("kind") == "order"}
+                    for entry in entries:
+                        if entry.get("kind") == "settle":
+                            # Missing counterparty fields never create alliance credit.
+                            copy = {**entry, "data": dict(entry.get("data", {}))}
+                            copy["data"].setdefault("round", order_rounds.get(copy["data"].get("order")))
+                            live_competition().record_public_return(copy)
             sent = kwargs.get("json", {})
             if method == "POST" and path == "/api/settle" and data.get("settled") is True:
                 key = kit.load_key(ROOT / "shop_key.pem")
                 checkout = kit.jwt_payload(sent["checkout_jwt"], kit.pub_b64(key))
                 self.settled("seller", sent["order"], checkout["item"], checkout["price"])
+                if live_competition():
+                    live_competition().settle_quote(checkout["task"], checkout["price"])
             if method == "POST" and path == "/api/results" and data.get("verified") and sent.get("mandate_receipt"):
                 receipt = sent["receipt"]
                 is_new = self.settled("buyer", sent["order"], receipt["item"], receipt["price"])
@@ -69,6 +85,10 @@ class StrategicMarket(kit.Market):
                     entry = memory["shops"][name]
                     entry["settled"] = entry.get("settled", 0) + 1
                     entry.setdefault("prices", {})[receipt["item"]] = receipt["price"]
+                    if live_competition():
+                        for observation in entry.get("history", []):
+                            if observation.get("task") == receipt["task"] and observation.get("extra_reservation"):
+                                live_competition().resolve_extra(observation["extra_reservation"], True)
                     write(memory_path, memory)
         except Exception as exc:
             event("telemetry_error", type=type(exc).__name__, message=str(exc))
@@ -163,6 +183,7 @@ if __name__ == "__main__":
     cloudflared = previous / "tools"
     os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + str(cloudflared) + os.pathsep + os.environ["PATH"]
     os.environ["PYTHONIOENCODING"] = "utf-8"
+    os.environ["COMPETITION_LIVE"] = "1"
     kit.Market, kit.AcpShop, kit.acp_pay = StrategicMarket, SchemaAcpShop, pay
     original_log = kit.log
     def private_log(line=""):

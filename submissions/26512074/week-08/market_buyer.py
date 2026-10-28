@@ -9,6 +9,7 @@ import time
 from policy import RESERVES, event, load_policy, read_price
 from protocol import A2AClient, receipt, task_state, task_text
 from signing import verify_receipt, whole
+from competition import live_competition
 
 MEMORY = Path("trade-memory.json")
 
@@ -51,6 +52,11 @@ def pick_shop(shops, item, plan, memory):
     rows = rank_shops(shops, item, plan, memory)
     if not rows:
         raise ValueError("no eligible supplier")
+    competition = live_competition()
+    if competition:
+        rows = [(score + (.5 if competition.allowance(shop["name"]) >= 1 else 0), shop, evidence)
+                for score, shop, evidence in rows]
+        rows.sort(key=lambda row: (-row[0], row[1]["name"]))
     nonce = memory.get("orders", 0)
     digest = int(hashlib.sha256(f"{item}:{nonce}:totato2203".encode()).hexdigest()[:8], 16)
     explore = digest % 100 < plan["explore_percent"]
@@ -65,6 +71,12 @@ async def buy(selected, item, budget, memory, plan):
     local = memory["shops"].setdefault(selected["name"], {"attempts": 0, "settled": 0, "prices": {}, "history": []})
     prior_price = local["prices"].get(item, RESERVES[item])
     ceiling = min(budget, max(RESERVES[item], prior_price) + plan["max_premium"])
+    competition = live_competition()
+    reference = min([RESERVES[item]] + [s.get("prices", {}).get(item, RESERVES[item]) for s in memory["shops"].values()])
+    allied = competition is not None and competition.allowance(selected["name"]) >= 1
+    if allied:
+        ceiling = min(ceiling, reference + 1)
+        event("cooperative_ceiling", name=selected["name"], reference=reference, ceiling=ceiling)
     local["attempts"] = local.get("attempts", 0) + 1
     observation = {"at": time.time(), "item": item, "state": "started", "task": None, "last_offer": None}
     local["history"].append(observation)
@@ -90,11 +102,15 @@ async def buy(selected, item, budget, memory, plan):
                 memory_write(memory)
                 return rec, "A2A receipt matched the authorized price and task; settlement is checked separately."
             if state in ("TASK_STATE_REJECTED", "TASK_STATE_CANCELED", "TASK_STATE_FAILED"):
+                if competition and observation.get("extra_reservation"):
+                    competition.resolve_extra(observation.pop("extra_reservation"), False)
                 observation["state"] = "no_deal"
                 memory_write(memory)
                 return None, "Negotiation ended without a purchase; no payment authorized."
             if state != "TASK_STATE_INPUT_REQUIRED":
                 raise ValueError("unsupported task state")
+            if competition and observation.get("extra_reservation"):
+                competition.resolve_extra(observation.pop("extra_reservation"), False)
             if budget < RESERVES[item] or turn == plan["max_rounds"]:
                 await client.cancel(task["id"])
                 observation["state"] = "walked"
@@ -116,6 +132,12 @@ async def buy(selected, item, budget, memory, plan):
                     return None, "Repeated bid declined; no budget increase or purchase authorized."
             if offer > budget or offer > ceiling:
                 raise ValueError("offer exceeds immutable budget or local price ceiling")
+            if allied and offer > reference:
+                identity = f"{task['id']}:{turn}"
+                if not competition.reserve_extra(identity, selected["name"], offer - reference):
+                    await client.cancel(task["id"])
+                    return None, "Cooperation credit exhausted; no additional subsidy authorized."
+                observation["extra_reservation"] = identity
             last_offer = offer
             observation.update(last_offer=offer, state="binding_pending")
             memory_write(memory)  # Before the request that may create a binding receipt.

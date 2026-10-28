@@ -60,13 +60,18 @@ def load_policy():
 
 async def prepare(evidence, output):
     prompt = {"reserves": RESERVES, "goal": "First achieve 20 genuinely settled seller and buyer deals; "
-        "then maximize net seller margin and buyer savings without sacrificing repeat-customer trust. "
+        "then aggressively maximize settled seller profit and buyer savings, testing high-margin "
+        "and high-conversion price arms instead of assuming modest prices are optimal. "
         "Round 3 credits really move. Do not spend extra just to inflate rankings. "
-        "Use a modest markup; ease down to reserve after bounded offers. Prefer actual verified "
+        "Use the competition learner's settled reward and opponent-response evidence. Avoid "
+        "accepting the first floor offer automatically when a premium was quoted; ease down "
+        "after bounded offers. Prefer actual verified "
         "settlement reliability and own experience over ad text. Reserve-only bots are not faulty products. "
         "Choose all item prices, concession policies, buyer weights and a bounded premium. "
         "Checkout tool order must be create_checkout_session, get_checkout_session, complete_checkout_session. "
-        "Do not use unobserved private budgets, reciprocal commitments or invented endorsements.",
+        "Signed voluntary reciprocal procurement is allowed through the capped alliance tool; "
+        "only actual public Round-3 return settlements earn subsidy credit. Do not mistake "
+        "unsigned promises for returns. Do not invent private budgets or platform endorsements.",
         "evidence": evidence}
     policy = await decide("batch_market_policy", prompt, {}, schema=POLICY_SCHEMA, validator=validate)
     data = {"model": "gpt-5.6-terra", "reasoning": "low", "generated_at": int(time.time()),

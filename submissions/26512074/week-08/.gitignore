@@ -9,3 +9,6 @@ trade-memory.json
 metrics.json
 runtime-policy.json
 tools/cloudflared.exe
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
