@@ -17,6 +17,9 @@ from round3 import read,lines
 NAME='totato2203-r3'
 MARKER='[매수 기회 포착 | totato2203-r3]'
 INTERVAL=300
+MAX_RECOMMENDATIONS=5
+MIN_RECOMMENDATIONS=4
+MAX_QUOTES=24
 
 
 def database(md):
@@ -91,7 +94,7 @@ def score(f,quote,now):
 async def fetch_quotes(choices,catalog):
     from protocol import A2AClient,task_text,task_state
     from policy import read_price
-    semaphore=asyncio.Semaphore(2)
+    semaphore=asyncio.Semaphore(4)
     async def one(shop,sku):
         async with semaphore:
             task=None
@@ -140,6 +143,44 @@ def render(r,catalog,inventory,style):
         '도움이 됐다면 좋아요로 알려주세요. 반응은 상세 분석 주제 선정과 지속적인 분석 개선에 참고합니다. '
         '향후 상승이나 재판매 이익을 보장하지 않습니다.')
     return {'post':text,'as':'buyer','refs':r['refs']}
+
+
+def select_slate(results,c,priority,limit=MAX_RECOMMENDATIONS):
+    selected=[]
+    seen=set()
+    for r in sorted(results,key=lambda r:-priority(r)):
+        if r['sku'] in seen:
+            continue
+        previous=c.execute('select data from publications where sku=? order by at desc limit 1',(r['sku'],)).fetchone()
+        if previous:
+            old=json.loads(previous[0])
+            meaningful=(abs(r['price']/old['price']-1)>=.02 or
+                        r['count']>=old['count']*1.25 or abs(r['score']-old['score'])>=8)
+            if not meaningful:
+                continue
+        selected.append(r)
+        seen.add(r['sku'])
+        if len(selected)==limit:
+            break
+    return selected
+
+
+def render_slate(selected,catalog,inventory,style):
+    text=[f'{MARKER} {style} · 근거 확인 상품 {len(selected)}개']
+    refs=[]
+    for i,r in enumerate(selected,1):
+        trend=f"{r['medium_trend']*100:+.1f}%" if r['medium_trend'] is not None else '표본 부족'
+        text.append(f"{i}. {r['sku']} {catalog[r['sku']]['name'][:24]}\n"
+            f"1시간 중앙값 {r['median']:,.0f} → 확인 호가 {r['price']:,.0f} "
+            f"({r['discount']*100:.1f}% 낮음), 거래 {r['count']}건(이전 {r['previous_count']}건), "
+            f"가격 추세 {trend}, 공개 재고 {r['stock']}개, 점수 {r['score']:.1f}.\n"
+            f"판매처 {r['shop']}{' [우리 가게 광고]' if r['own'] else ''}: {r['url']}")
+        refs.extend(r['refs'][:2])
+    text.append('문의 당시 견적입니다. 등급·보증·인증서·식품 잔여 수명과 최종 가격을 확인하고 구매 문의하세요. '
+                '가격 상승·재판매 이익을 보장하지 않습니다.')
+    text.append(f'우리 가게 {NAME} 판매 중: {stock_ad(inventory)}. SKU별 견적, 시장 인증서 제공, 별도 보증 미제공.')
+    text.append('도움이 됐다면 좋아요로 알려주세요. 반응을 다음 상세 분석 주제 선정에 참고합니다.')
+    return {'post':'\n'.join(text),'as':'buyer','refs':list(dict.fromkeys(refs))[:10]}
 
 
 def measure_feedback(c,ledger,forum,sent,now,inventory=None):
@@ -229,10 +270,10 @@ def tick(md,enabled=False,refresh=True):
                 prices=[e['data']['amount'] for e in groups[sku]
                         if e['data'].get('shop')==shop['name'] and now-e['ts']<3600]
                 return median(prices) if prices else math.inf
-            choices.append((min(options,key=lambda s:(observed_price(s),-s['stock'][sku])),sku))
-        if len(choices)>=6:
+            choices.extend((s,sku) for s in sorted(options,key=lambda s:(observed_price(s),-s['stock'][sku]))[:2])
+        if len(choices)>=MAX_QUOTES:
             break
-    choices=choices[:6]
+    choices=choices[:MAX_QUOTES]
     quotes=asyncio.run(fetch_quotes(choices,catalog))
     with (md/'recommendation-quotes.jsonl').open('a',encoding='utf-8') as journal:
         for q in quotes:
@@ -261,35 +302,33 @@ def tick(md,enabled=False,refresh=True):
         rewards=topic_rewards[r['sku']]
         learned=max(-3,min(3,sum(rewards)/len(rewards))) if rewards else 0
         return r['score']+(3 if r['own'] else 0)+learned
-    chosen=None
-    for r in sorted(results,key=lambda r:-priority(r)):
-        previous=c.execute('select at,data from publications where sku=? order by at desc limit 1',(r['sku'],)).fetchone()
-        if previous:
-            old=json.loads(previous[1])
-            meaningful=abs(r['price']/old['price']-1)>=.02 or r['count']>=old['count']*1.25 or abs(r['score']-old['score'])>=8
-            if not meaningful:
-                continue
-        chosen=r;break
+    selected=select_slate(results,c,priority)
+    chosen=selected[0] if selected else None
     preview={'at':now,'quotes_checked':len(quotes),'qualified':len(results),'recommendation':chosen,
+             'recommendations':selected,
              'feedback':[json.loads(row[0]) for row in c.execute('select feedback from publications where feedback is not null')]}
     (md/'recommendation-preview.json').write_text(json.dumps(preview,ensure_ascii=False,indent=2),encoding='utf-8')
     latest=c.execute('select max(at) from publications').fetchone()[0]
-    if not chosen or not enabled or latest and now-latest<INTERVAL:
-        c.commit();c.close();return {'status':'no_new_opportunity' if not chosen else 'dry_run_or_interval',**{k:preview[k] for k in ('quotes_checked','qualified')}}
+    if len(selected)<MIN_RECOMMENDATIONS or not enabled or latest and now-latest<INTERVAL:
+        c.commit();c.close();return {'status':'insufficient_evidence_for_four' if len(selected)<MIN_RECOMMENDATIONS else 'dry_run_or_interval',
+                                   'recommendation_count':len(selected),**{k:preview[k] for k in ('quotes_checked','qualified')}}
     pending=lines(md/'outbox.jsonl')
     if any(p.get('as')=='buyer' and 'post' in p for p in pending):
         c.commit();c.close();return {'status':'pending_outbox'}
-    post=render(chosen,catalog,inv,styles)
+    post=render_slate(selected,catalog,inv,styles)
     digest=hashlib.sha256(post['post'].encode()).hexdigest()
-    if c.execute('select 1 from publications where digest=?',(digest,)).fetchone():
+    if c.execute('select 1 from publications where body=?',(post['post'],)).fetchone():
         c.commit();c.close();return {'status':'duplicate'}
     # Worker holds an OS lock; journal/pending queue survive process restarts.
-    c.execute('insert into publications values(?,?,?,?,?,?,null)',(digest,now,chosen['sku'],styles,post['post'],json.dumps(chosen)))
+    for r in selected:
+        c.execute('insert into publications values(?,?,?,?,?,?,null)',
+                  (digest+':'+r['sku'],now,r['sku'],styles,post['post'],json.dumps(r)))
     c.commit()
     with (md/'outbox.jsonl').open('a',encoding='utf-8') as out:
         out.write(json.dumps(post,ensure_ascii=False)+'\n')
     c.close()
-    return {'status':'queued','sku':chosen['sku'],'score':chosen['score'],'digest':digest}
+    return {'status':'queued','skus':[r['sku'] for r in selected],
+            'recommendation_count':len(selected),'digest':digest}
 
 
 def ensure_worker(md):

@@ -186,3 +186,19 @@ record. First accepted recommendation: HTTP 200, forum post 597, G200e39a3,
 quoted 16,500 versus observed one-hour median 27,713 (40.46% lower), score 41.47.
 This confirms publication, not a measured sales lift. Existing buyer, seller,
 receipt signing and stock management commands are retained.
+
+## Four-to-five product recommendation slates
+
+Each qualified post now contains four or five distinct SKUs, each with an actual
+recent quote, observed median, trade count, trend, available stock and seller.
+The quote search grows from six to at most 24 requests with four concurrent
+quote-only tasks. Product scores, freshness and evidence thresholds are unchanged.
+Duplicates of a SKU are collapsed to its highest-priority qualifying offer.
+Fewer than four evidence-backed, meaningfully changed products suppress posting;
+the system never fills the batch with unsupported recommendations.
+One shared inventory ad and feedback request follow the numbered product list.
+Each product has its own persistent feedback record linked to the shared post,
+so per-SKU outcomes and restart history remain available. Five essential tests
+passed, including unique five-item rendering and no post with only three valid
+candidates. The independent recommendation worker was restarted with this version;
+the existing seller/buyer/procurement operator was not restarted.

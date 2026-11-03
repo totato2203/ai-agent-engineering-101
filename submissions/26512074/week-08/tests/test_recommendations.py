@@ -45,5 +45,39 @@ class RecommendationTests(unittest.TestCase):
             self.assertEqual(f['status'],'published')
             self.assertIsNone(f['visits'])
             c.close()
+    def test_slate_five_unique_products_with_evidence_and_shared_ad(self):
+        f=r.features(self.events,2,[],'x',self.now)
+        base=r.score(f,{'sku':'x','shop':r.NAME,'url':'http://shop','price':70,'at':self.now},self.now)
+        results=[{**base,'sku':str(i),'score':30-i} for i in range(7)]
+        results.append({**results[0],'score':10})
+        with tempfile.TemporaryDirectory() as d:
+            c=r.database(d)
+            slate=r.select_slate(results,c,lambda item:item['score'])
+            self.assertEqual([s['sku'] for s in slate],['0','1','2','3','4'])
+            post=r.render_slate(slate,{str(i):{'name':'Product '+str(i)} for i in range(7)}, {'units':[]},'가격 메리트')
+            for i in range(5):
+                self.assertIn('Product '+str(i),post['post'])
+            self.assertNotIn('Product 5',post['post'])
+            self.assertEqual(post['post'].count('우리 가게 totato2203-r3 판매 중:'),1)
+            self.assertIn('30.0%',post['post'])
+            c.close()
+    def test_fewer_than_four_evidence_backed_products_do_not_publish(self):
+        import io,json
+        from unittest.mock import patch,AsyncMock
+        with tempfile.TemporaryDirectory() as d:
+            md=Path(d)
+            catalog={str(i):{'name':'Product '+str(i)} for i in range(3)}
+            events=[{**e,'seq':i*100+e['seq'],'data':{**e['data'],'item':str(i)}}
+                    for i in range(3) for e in self.events]
+            (md/'catalog.json').write_text(json.dumps(catalog))
+            (md/'ledger.jsonl').write_text('\n'.join(json.dumps(e) for e in events))
+            shops={'shops':[{'name':'other','url':'http://shop','stock':{str(i):2 for i in range(3)}}]}
+            quotes=[{'sku':str(i),'shop':'other','url':'http://shop','price':70,'at':self.now} for i in range(3)]
+            with patch.object(r.time,'time',return_value=self.now), \
+                 patch.object(r,'urlopen',return_value=io.BytesIO(json.dumps(shops).encode())), \
+                 patch.object(r,'fetch_quotes',new=AsyncMock(return_value=quotes)):
+                result=r.tick(md,enabled=True)
+            self.assertEqual(result['status'],'insufficient_evidence_for_four')
+            self.assertFalse((md/'outbox.jsonl').exists())
 if __name__=='__main__':
     unittest.main()
