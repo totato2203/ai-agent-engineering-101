@@ -132,6 +132,8 @@ def restock_hook(state,now=None):
     result=procurement(inv,catalog,ledger,now)
     from market_analysis import queue_report
     queue_report(md,ledger,catalog,inv,now,enabled=os.environ.get('ROUND3_FORUM_ENABLED')=='1')
+    from shop_promotion import queue_promotion
+    queue_promotion(md,inv,ledger,now,enabled=os.environ.get('ROUND3_FORUM_ENABLED')=='1')
     memory=read(md/'strategy-memory.json',{})
     units=[u for u in inv.get('units',[]) if pricing(u,now)]
     if units and now-memory.get('last_draft',0)>=1800:

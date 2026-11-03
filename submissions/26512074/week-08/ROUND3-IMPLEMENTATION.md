@@ -114,3 +114,20 @@ Each run spends at most 1,500,000 while retaining 750,000 cash; official limits
 remain 10 lines and 20 units per line. Existing stock reduces requirements.
 The running kit reloads the restock command, so no operator restart is needed.
 See logs/larger-restock-validation.json for a projection, not a purchase claim.
+## Evidence-based shop promotion
+
+Added shop_promotion.py to the active restock hook. It rotates current stock,
+certificate/expiry checks and observed own-shop settlement totals as shop posts.
+Minimum queue interval: 300 seconds, matching the kit's role-specific forum limit;
+the sixty-second hook cadence may make the observed interval slightly longer.
+The existing buyer-role market analysis remains hourly. Pending shop posts block
+new shop promotions. Local state persists across restarts. Expired stock is omitted,
+and settlement sequences are deduplicated with source references.
+
+No fabricated injuries, failures, popularity, waiting lists, vote bargains,
+retaliatory votes or targeted negative advertising were added. Voter identity is
+not present in the documented forum snapshot, so no voter-specific discount or
+supporter promotion is claimed. Three essential promotion tests passed.
+
+The running kit reloads round3.py on each restock invocation, so the next call
+loads the promotion module without restarting the deployed identity.
