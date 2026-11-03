@@ -93,3 +93,14 @@ v4 launcher hidden, with local dependency and tunnel paths configured.
 - ?? ?? ?? ??? logs/market-kit.log? ?? ???? PID? ????.
 
 Live validation: analysis post HTTP 200; 2 buyer ACP payments observed. Supply currently closed; 0 seller units. See logs/round3-deployment-status.json for a timestamped snapshot.
+
+## Buyer retry correction
+
+The initial buyer stopped after one stocked supplier even on rejection or an invalid
+receipt. retry-v2 now tries up to six distinct suppliers and returns only one
+receipt to the kit for payment. Rejected negotiations cannot themselves settle
+without the kit mandate/ACP path. Certificate and food lifetime requirements
+are stated in the opening request; receipt overcharges are rejected and recorded
+in .market/buyer-observations.json. Four regression scenarios pass. The kit
+reloads buyer_r3.py per order, so this change applies without restarting the shop.
+See logs/no-deal-diagnosis.json for the pre-fix outcome counts.
