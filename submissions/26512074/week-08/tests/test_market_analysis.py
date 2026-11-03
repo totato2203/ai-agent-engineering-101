@@ -36,9 +36,11 @@ class AnalysisTests(unittest.TestCase):
             self.assertFalse(queue_report(md,self.events,self.catalog,{},self.now))
             self.assertFalse((md/'outbox.jsonl').exists())
             self.assertTrue(queue_report(md,self.events,self.catalog,{},self.now,True))
-            self.assertFalse(queue_report(md,self.events,self.catalog,{},self.now+3601,True))
+            self.assertFalse(queue_report(md,self.events,self.catalog,{},self.now+301,True))
             (md/'outbox.jsonl').unlink()
-            self.assertFalse(queue_report(md,self.events,self.catalog,{},self.now+3601,True))
+            self.assertFalse(queue_report(md,self.events,self.catalog,{},self.now+299,True))
+            self.assertTrue(queue_report(md,self.events,self.catalog,{},self.now+300,True))
+            self.assertFalse(queue_report(md,self.events,self.catalog,{},self.now+600,True))
             self.assertEqual(len(json.loads((md/'analysis-preview.json').read_text(encoding='utf-8'))['rows']),1)
     def test_small_sample_no_trend(self):
         row=summarize(self.events[:1],self.catalog,{},self.now)[0]

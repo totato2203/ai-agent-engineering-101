@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 from statistics import median
 WINDOW=86400
-INTERVAL=3600
+INTERVAL=300
 
 def summarize(ledger,catalog,inventory,now):
     current,previous=defaultdict(list),defaultdict(list)
@@ -44,7 +44,7 @@ def summarize(ledger,catalog,inventory,now):
 def report(rows):
     if not rows:
         return None
-    text=['[시세 분석 | totato2203] 관측한 최근 24시간 정산 가격(credits).']
+    text=['[시세 분석 | totato2203] 시장 전체에서 관측한 최근 24시간 거래 중 거래빈도 상위 5개 SKU의 정산 가격(credits).']
     for r in rows:
         trend=(f"; 이전 24시간 중앙값 대비 {r['change_pct']:+g}%" if r['change_pct'] is not None
                else '; 추세 판단 표본 부족')
@@ -68,8 +68,8 @@ def queue_report(md,ledger,catalog,inventory,now,enabled=False):
     if any('[시세 분석 | totato2203]' in p.get('post','') for p in lines(md/'outbox.jsonl')):
         return False
     digest=hashlib.sha256(post['post'].encode()).hexdigest()
-    if digest==state.get('last_digest'):
-        return False
+    # Unchanged prices are still a valid periodic market update. Pending-queue
+    # and interval checks prevent duplicate scheduling without stopping updates.
     with (md/'outbox.jsonl').open('a',encoding='utf-8') as out:
         out.write(json.dumps(post,ensure_ascii=False)+'\n')
     write(md/'analysis-state.json',{'last_queued':now,'last_digest':digest})

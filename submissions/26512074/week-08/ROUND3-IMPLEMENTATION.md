@@ -131,3 +131,14 @@ supporter promotion is claimed. Three essential promotion tests passed.
 
 The running kit reloads round3.py on each restock invocation, so the next call
 loads the promotion module without restarting the deployed identity.
+
+## Five-minute market reports
+
+Market-wide ledger reports now use a 300-second queue interval instead of 3600.
+The post labels its coverage explicitly: the five most frequently observed SKUs
+across all shops in the collected 24-hour ledger window. Own holdings do not
+influence selection or statistics. Unchanged prices no longer suppress future
+scheduled reports indefinitely; the interval and pending outbox check still
+prevent duplicate scheduling. Publication is subject to the kit sync cadence and
+server role-based rate limits. The active restock hook imports this file anew
+on each call; no operator restart or identity re-registration is necessary.
