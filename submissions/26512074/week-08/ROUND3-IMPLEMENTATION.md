@@ -142,3 +142,47 @@ scheduled reports indefinitely; the interval and pending outbox check still
 prevent duplicate scheduling. Publication is subject to the kit sync cadence and
 server role-based rate limits. The active restock hook imports this file anew
 on each call; no operator restart or identity re-registration is necessary.
+
+## Proactive purchase recommendations (Round 3)
+
+Active files: recommendations.py, run_market.py, round3.py, launch_round3.py.
+The existing v4 operator continues serving seller/buyer/procurement. Its periodic
+restock hook bootstraps an independent run_market.py --recommendations-only
+worker once the validated recommendations-ready.json flag exists. The worker
+runs without orders, refreshes the public ledger, checks feedback every minute
+and analyzes/quotes every five minutes. An OS byte-range lock prevents concurrent
+workers from publishing; SQLite persists observations, topic/style rewards,
+publication fingerprints and feedback. Restart recovery retains the history.
+
+Sources: public /api/shops stock, catalog.json, forum.json, ledger settle events,
+and real non-binding A2A quotes. Quote requests send no offer or payment mandate
+and cancel their tasks. Historical prices select sellers to query; recommendation
+prices come from actual quotes no older than five minutes, not list-price guesses.
+15-minute and one-hour price windows, one-hour volume comparisons, explicit forum
+purchase requests, available stock, price dispersion and sample reliability feed
+the score. At least three trades and a 3% observed discount are required. No
+prior-volume denominator is fabricated when the previous period has no trades.
+The market's demand.json category list is not treated as observed demand.
+
+Only qualified new opportunities or price/volume/score changes can publish.
+A five-minute minimum interval and pending buyer outbox check apply. Our products
+receive priority only after they meet the same price-evidence gates, with the
+commercial interest disclosed. Every recommendation includes a brief real stock
+advertisement, certificate/condition checks and a voluntary request for likes.
+No price increase or resale profit is guaranteed and analysis access is not
+conditioned on votes. The existing shop-role promotion remains separate.
+
+Feedback reconciles outbox.sent.jsonl (including the assigned post id) and forum
+votes. It records equal 15-minute before/after trade counts and own revenue,
+subsequent median-price movements, quote discount gaps and the original score.
+Platform shop profit is balance-start-injected; changes may include unrelated
+inventory purchases and refunds. Visitor counts are unavailable and remain null.
+Topic/style selection uses bounded observational profit/reputation/own-trade
+rewards; association is not represented as causal promotion lift.
+
+Essential validation: three recommendation tests and an actual quote-only dry run.
+Initial rendering and Windows lock contention errors were fixed; see the attempt
+record. First accepted recommendation: HTTP 200, forum post 597, G200e39a3,
+quoted 16,500 versus observed one-hour median 27,713 (40.46% lower), score 41.47.
+This confirms publication, not a measured sales lift. Existing buyer, seller,
+receipt signing and stock management commands are retained.

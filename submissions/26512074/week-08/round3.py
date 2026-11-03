@@ -130,8 +130,9 @@ def restock_hook(state,now=None):
     catalog=read(md/'catalog.json',{})
     ledger=lines(md/'ledger.jsonl')
     result=procurement(inv,catalog,ledger,now)
-    from market_analysis import queue_report
-    queue_report(md,ledger,catalog,inv,now,enabled=os.environ.get('ROUND3_FORUM_ENABLED')=='1')
+    if os.environ.get('ROUND3_FORUM_ENABLED')=='1' and (md/'recommendations-ready.json').exists():
+        from recommendations import ensure_worker
+        ensure_worker(md)
     from shop_promotion import queue_promotion
     queue_promotion(md,inv,ledger,now,enabled=os.environ.get('ROUND3_FORUM_ENABLED')=='1')
     memory=read(md/'strategy-memory.json',{})
@@ -150,11 +151,6 @@ def main():
     group.add_argument('--state',type=Path)
     group.add_argument('--deal',type=Path)
     args=parser.parse_args()
-    if args.state:
-        try:
-            refresh_ledger(args.state)
-        except (OSError, ValueError, KeyError):
-            pass  # Use durable evidence during a public API outage.
     print(json.dumps(restock_hook(args.state) if args.state else review(read(args.deal,{})),ensure_ascii=False))
 if __name__=='__main__':
     main()
