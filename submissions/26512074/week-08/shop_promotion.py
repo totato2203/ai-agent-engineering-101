@@ -44,9 +44,11 @@ def promotion(inventory, ledger, now, edition=0):
             'as': 'shop', 'refs': [e['seq'] for e in sales[-5:]] if mode == 2 else []}
 
 
-def queue_promotion(md, inventory, ledger, now, enabled=False):
+def queue_promotion(md, inventory, ledger, now, enabled=False, managed=False):
     from round3 import read, write, lines
     md = Path(md)
+    if (md/'community-ready.json').exists() and not managed:
+        return False
     state = read(md / 'promotion-state.json', {})
     post = promotion(inventory, ledger, now, state.get('edition', 0))
     if post is None:

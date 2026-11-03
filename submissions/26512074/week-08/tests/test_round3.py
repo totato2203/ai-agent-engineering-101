@@ -27,7 +27,7 @@ class Round3Tests(unittest.TestCase):
         inv={'balance':5000000,'restock':{'open':True},'units':[]}
         events=[{'seq':1,'kind':'settle','ts':DAY,'data':{'item':'x'}}]
         buy=procurement(inv,cat,events,DAY)['buy']
-        self.assertEqual(buy,[{'sku':'x','qty':8}])
+        self.assertEqual(buy,[{'sku':'x','qty':12}])
         inv['balance']=800000
         self.assertEqual(procurement(inv,cat,events,DAY)['buy'],[])
 if __name__=='__main__':

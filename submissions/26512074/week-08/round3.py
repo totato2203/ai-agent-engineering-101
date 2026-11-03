@@ -78,6 +78,8 @@ def procurement(inv,catalog,ledger,now):
         target = math.ceil(r['rate']*horizon+2*r['sigma']*math.sqrt(horizon))
         if r['rate']>0:
             target=max(target,4 if p['kind']=='food' else 8)
+            if held[sku]==0:
+                target=max(target,6 if p['kind']=='food' else 12)
         if p['kind']=='food':
             target = min(target,max(1,math.floor(r['rate']*3*p.get('shelf_hours',0)/24*.45)))
         if not rates and sum(held.values())<12:
@@ -87,7 +89,7 @@ def procurement(inv,catalog,ledger,now):
             candidates.append((r['rate']/listed,sku,need,math.ceil(listed*.75)))
     buy=[]
     probe_left=max(0,12-sum(held.values()))
-    for _,sku,need,worst_cost in sorted(candidates,key=lambda x:(-x[0],x[3],x[1])):
+    for _,sku,need,worst_cost in sorted(candidates,key=lambda x:(held[x[1]]>0,-x[0],x[3],x[1])):
         qty=min(20,need,cash//worst_cost)
         if not rates:
             qty=min(qty,probe_left)

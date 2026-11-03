@@ -202,3 +202,29 @@ so per-SKU outcomes and restart history remain available. Five essential tests
 passed, including unique five-item rendering and no post with only three valid
 candidates. The independent recommendation worker was restarted with this version;
 the existing seller/buyer/procurement operator was not restarted.
+
+## Contextual comments and stockout replenishment
+
+community.py runs in the existing singleton worker every minute. It selects
+other owners' root information/complaint posts from the last day only when an
+available, unexpired inventory SKU/category is relevant. It queues a real +1
+shop vote, waits for the kit's HTTP-200 acknowledgement, then queues a threaded
+thank-you or empathetic reply with related stock and a voluntary request for
+feedback on our posts. No successful vote means no claim that a like was given.
+A vote may be accepted but not counted under the market's five-settlement rule;
+no counted-rating benefit is claimed. Completed threads survive restarts and
+are not replied to again. Replies share the role's five-minute post limit with
+shop promotions; ordinary promotions fill gaps when no relevant reply is ready.
+
+Inventory check found 281 units across 17 SKUs, with approximately 1.34 million
+cash. The available data does not establish that all lost sales are caused by
+our stockouts. No blanket purchase increase is applied to already stocked goods.
+Instead, observed-demand SKUs with zero held units get a 12-unit goods target or
+6-unit food target (food remains shelf-life constrained), and empty SKUs take
+priority over replenishing existing holdings. The 750,000 reserve and 1,500,000
+per-run spending cap remain. Procurement reloads on its next call.
+
+Validation: three comment/vote tests and five procurement/pricing tests passed.
+The singleton worker was restarted to load the community integration; the main
+Round 3 seller/buyer operator remains running. Actual delivery is recorded in
+outbox.sent.jsonl; validation alone is not a claim of successful live comments.
