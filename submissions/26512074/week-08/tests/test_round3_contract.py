@@ -10,6 +10,42 @@ import seller_r3
 from round3 import restock_hook
 from signing import verify_receipt
 import base64
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+
+class SellerExecutionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_matching_offer_and_reservation(self):
+        seller=seller_r3.Seller()
+        unit={'unit':'u','sku':'x','name':'X','kind':'goods','cost':50,'list_price':100}
+        seller.open['task']={'unit':unit,'ask':100,'offer':None,'lines':[]}
+        context=SimpleNamespace(current_task=SimpleNamespace(id='task',context_id='c'),message=None)
+        updater=MagicMock()
+        updater.add_artifact=AsyncMock()
+        updater.complete=AsyncMock()
+        with patch.object(seller_r3,'TaskUpdater',return_value=updater), \
+             patch.object(seller_r3,'get_message_text',return_value='100'), \
+             patch.object(seller_r3,'decide',new=AsyncMock(return_value={'action':'accept'})), \
+             patch.object(seller_r3,'sign',side_effect=lambda r:r):
+            await seller.execute(context,None)
+        updater.complete.assert_awaited_once()
+        self.assertIn('u',seller.promised)
+        self.assertNotIn('task',seller.open)
+
+    async def test_no_accepted_price_inferred_from_unrelated_number(self):
+        seller=seller_r3.Seller()
+        unit={'unit':'u','sku':'x','name':'X','kind':'goods','cost':50,'list_price':100}
+        seller.open['task']={'unit':unit,'ask':100,'offer':None,'lines':[]}
+        context=SimpleNamespace(current_task=SimpleNamespace(id='task',context_id='c'),message=None)
+        updater=MagicMock()
+        updater.requires_input=AsyncMock()
+        with patch.object(seller_r3,'TaskUpdater',return_value=updater), \
+             patch.object(seller_r3,'get_message_text',return_value='delivery takes 100 days'), \
+             patch.object(seller_r3,'read_price',new=AsyncMock(return_value=None)), \
+             patch.object(seller_r3,'decide',new=AsyncMock(return_value={'action':'accept'})):
+            await seller.execute(context,None)
+        updater.requires_input.assert_awaited_once()
+        self.assertFalse(seller.promised)
 
 class ContractTests(unittest.TestCase):
     def test_buyer_acceptable_stock_budget(self):

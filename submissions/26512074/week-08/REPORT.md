@@ -193,5 +193,10 @@ upstream commit `a496eac201abb83e38ffc4478104b6f8c5bd9af9`의 키트 v3를 제�
 
 Previous normalized planner replaced with kit-v4 restock/review hooks and separate
 Round-3 seller/buyer commands. See ROUND3-IMPLEMENTATION.md for the current scope.
-No Round-3 registration, settlement or publication was performed. Previous-week
+Initial offline tests performed no market actions. On user authorization, the
+official v4 launcher registered shop and buyer as totato2203-r3 in Round 3 at
+21:27:11 Asia/Seoul on 2026-11-03. Registration is not a successful settlement.
+Periodic public-ledger price reports are enabled. Previous-week
 results above are historical, not results of the rebuilt implementation.
+
+Live validation: analysis post HTTP 200; 2 buyer ACP payments observed. Supply currently closed; 0 seller units. See logs/round3-deployment-status.json for a timestamped snapshot.

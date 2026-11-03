@@ -59,7 +59,7 @@ def main():
     # Avoid exposing the owner code in the OS process command line.
     owner=claim_path.read_text(encoding='utf-8-sig').strip()
     sys.argv=['market_kit','join','--dir',str(ROOT),'--market',MARKET,
-              '--name','totato2203','--tunnel','--owner',owner]
+              '--name','totato2203-r3','--tunnel','--owner',owner]
     kit.main()
     return 0
 
