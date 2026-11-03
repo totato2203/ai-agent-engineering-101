@@ -1,4 +1,4 @@
-.venv/
+﻿.venv/
 __pycache__/
 *.pyc
 *.pem
@@ -12,3 +12,4 @@ tools/cloudflared.exe
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
+.runtime-r3/

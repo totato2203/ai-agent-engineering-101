@@ -1,6 +1,18 @@
 {
   "harness": "Codex gpt-5.6-terra low; batch meta-policy plus bounded execution tools; genuine model fallback only for ambiguous price text",
-  "seller": {"cmd": "python seller.py --port {port}"},
-  "buyer": {"cmd": "python market_buyer.py --url {url} --item {item} --budget {budget}"},
-  "market_buyer": {"cmd": "python market_buyer.py --shops {shops} --item {item} --budget {budget}"}
+  "seller": {
+    "cmd": "python seller_r3.py --port {port}"
+  },
+  "buyer": {
+    "cmd": "python market_buyer.py --url {url} --item {item} --budget {budget}"
+  },
+  "market_buyer": {
+    "cmd": "python buyer_r3.py --shops {shops} --item {item} --budget {budget} --order {order}"
+  },
+  "restock": {
+    "cmd": "python round3.py --state {state}"
+  },
+  "review": {
+    "cmd": "python round3.py --deal {deal}"
+  }
 }

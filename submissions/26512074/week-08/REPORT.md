@@ -189,6 +189,9 @@ upstream commit `a496eac201abb83e38ffc4478104b6f8c5bd9af9`의 키트 v3를 제�
 정산 집계를 대조해 이 표를 채운다. 과거 주차·로컬 결과를 Round 3으로 복사하지
 않는다. 따라서 현재는 제출 완료본이 아닌 배포 직전 준비본이다.
 
-## 2026-11-03 Week 09 offline extension
+## 2026-11-03 Week 09 rebuild
 
-Branch: week-09. Added round3.py: settled-ledger demand inference, MRP safety stock, cash-constrained procurement, expiry salvage, warranty-adjusted quotes, buyer surplus ranking and opponent reward estimates. Eight planner tests pass; see logs/round3-planner-tests-final.log. No Round 3 registration or trades occurred. This is an offline normalized interface, not a verified kit-v4 hook implementation. Public contract retrieval was unavailable and the network permission request was rejected. See ROUND3-IMPLEMENTATION.md for scope and unresolved requests. architecture.tex is source only; no PDF compiler was found.
+Previous normalized planner replaced with kit-v4 restock/review hooks and separate
+Round-3 seller/buyer commands. See ROUND3-IMPLEMENTATION.md for the current scope.
+No Round-3 registration, settlement or publication was performed. Previous-week
+results above are historical, not results of the rebuilt implementation.
