@@ -104,3 +104,13 @@ are stated in the opening request; receipt overcharges are rejected and recorded
 in .market/buyer-observations.json. Four regression scenarios pass. The kit
 reloads buyer_r3.py per order, so this change applies without restarting the shop.
 See logs/no-deal-diagnosis.json for the pre-fix outcome counts.
+
+## Larger restock allocation
+
+Replaces the initial 20-minute horizon with 60 minutes; observed goods target at
+least 8 units, food targets up to 4 subject to a threefold demand/shelf-life cap.
+Cold-start exploration grows from 3 to 12 units, at most 2 per SKU.
+Each run spends at most 1,500,000 while retaining 750,000 cash; official limits
+remain 10 lines and 20 units per line. Existing stock reduces requirements.
+The running kit reloads the restock command, so no operator restart is needed.
+See logs/larger-restock-validation.json for a projection, not a purchase claim.
