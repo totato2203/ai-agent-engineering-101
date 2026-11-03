@@ -192,4 +192,3 @@ upstream commit `a496eac201abb83e38ffc4478104b6f8c5bd9af9`의 키트 v3를 제�
 ## 2026-11-03 Week 09 offline extension
 
 Branch: week-09. Added round3.py: settled-ledger demand inference, MRP safety stock, cash-constrained procurement, expiry salvage, warranty-adjusted quotes, buyer surplus ranking and opponent reward estimates. Eight planner tests pass; see logs/round3-planner-tests-final.log. No Round 3 registration or trades occurred. This is an offline normalized interface, not a verified kit-v4 hook implementation. Public contract retrieval was unavailable and the network permission request was rejected. See ROUND3-IMPLEMENTATION.md for scope and unresolved requests. architecture.tex is source only; no PDF compiler was found.
-
