@@ -75,14 +75,16 @@ class OptimizationTests(unittest.TestCase):
   self.assertEqual(restore(agent,store,self.md),1)
   self.assertEqual(agent.open['t']['ask'],115)
   self.assertIsNotNone(asyncio.run(store.get('t',__import__('a2a.server.context',fromlist=['ServerCallContext']).ServerCallContext())))
- def test_sparse_negotiation_accepts_floor_not_private_budget(self):
+ def test_sparse_negotiation_counters_then_accepts_or_guards(self):
   self.quote()
-  d={'unit':self.unit,'ask':150,'offer':110,'lines':['buyer: 110']}
+  d={'unit':self.unit,'ask':150,'offer':110,'lines':['buyer: hello','buyer: 110']}
   self.assertEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':150},1001)['action'],'ask')
-  d['lines'] += ['buyer: 110','buyer: 110']
-  self.assertEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':150},1001)['action'],'accept')
+  d.update(previous_offer=110,offer=118,lines=d['lines']+['buyer: 118'])
+  self.assertEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':145},1001)['action'],'ask')
+  d['lines'] += ['buyer: 118','buyer: 118']
+  self.assertEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':140},1001)['action'],'accept')
   d['offer']=90
-  self.assertNotEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':150},1001)['action'],'accept')
+  self.assertNotEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':140},1001)['action'],'accept')
  def test_evidence_can_counter_profitable_offer(self):
   for i in range(20):
    self.quote(str(i),now=100)
