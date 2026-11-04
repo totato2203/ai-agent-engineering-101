@@ -15,6 +15,18 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parent
+KST_OFFSET = 9*3600
+
+def schedule_slot(now):
+    return int((now+KST_OFFSET)//21600)
+
+def next_review_at(now):
+    return (schedule_slot(now)+1)*21600-KST_OFFSET
+
+def review_due(state,now):
+    # Migrate existing elapsed-time state without discarding any history.
+    return not state.get('last_at') or schedule_slot(now)>schedule_slot(state['last_at'])
+
 BOUNDS = {'exploration': (.10,.15), 'counter_edge': (.05,.3),
           'concession': (.1,.5), 'stock_multiplier': (.5,1.5),
           'cash_reserve': (2000000,2000000), 'inventory_cap': (1500000,1500000),
@@ -240,7 +252,7 @@ def evaluate(previous,current,policy):
         result['stock_multiplier']=min(1.5,round(policy['stock_multiplier']+.1,2))
     return validate(result),'apply' if result!=policy else 'hold: no justified change'
 
-def review(md,board,shops,now=None):
+def review(md,board,shops,now=None,force=False):
     now=time.time() if now is None else now;md=Path(md);out=md/'optimization';out.mkdir(exist_ok=True)
     pending=read(out/'pending-policy.json',None)
     if pending:
@@ -250,7 +262,7 @@ def review(md,board,shops,now=None):
         (out/'pending-policy.json').unlink()
         return {'status':'recovered_committed_cycle','at':pending['snapshot']['at']}
     state=read(out/'state.json',{})
-    if now-state.get('last_at',0)<21600:return {'status':'not_due','last_at':state.get('last_at')}
+    if not force and not review_due(state,now):return {'status':'not_due','last_at':state.get('last_at'),'next_at':next_review_at(now)}
     from shop_profit import REGISTRATION,exposure
     inv=read(md/'inventory.json',{});ledger=[]
     # Persisted ledger may contain a partially appended final row.
@@ -290,7 +302,7 @@ def review(md,board,shops,now=None):
         v=reliability.setdefault(payment.get('shop'),{'attempts':0,'paid':0,'spend':0})
         v['attempts']+=1;v['paid']+=int(payment.get('paid') is True)
         if payment.get('paid'):v['spend']+=payment.get('price',0)
-    snapshot={'at':now,'seller':seller,'buyer':buyer,'shop_rank':ranked.index(seller)+1,
+    snapshot={'at':now,'trigger':'manual' if force else 'scheduled','schedule':'00/06/12/18 Asia/Seoul','seller':seller,'buyer':buyer,'shop_rank':ranked.index(seller)+1,
               'players':next((p for p in board.get('players',[]) if p.get('player')=='totato2203'),{}),
               'top5':top,'seller_delta':sd,'buyer_delta':delta(buyer,previous['buyer'],elapsed) if previous else {},
               'cash_profit_per_hour':sd.get('profit',{}).get('per_hour'),
@@ -320,11 +332,13 @@ def review(md,board,shops,now=None):
                                     'comparison_at':(previous or {}).get('at'),'policy_before':policy,'policy_after':proposed})
     append(out/'model-usage.jsonl',{'at':now,'calls':0,'tokens':0,'mode':'deterministic'})
     state['last_at']=now
+    state['next_at']=next_review_at(now)
+    state['schedule']='00/06/12/18 Asia/Seoul'
     atomic(out/'pending-policy.json',{'policy':proposed,'snapshot':snapshot,'state':state})
     if changes:atomic(md/'adaptive-policy.json',proposed)
     atomic(out/'latest.json',snapshot);atomic(out/'state.json',state)
     (out/'pending-policy.json').unlink()
-    return {'status':reason,'top5':[s['name'] for s in top],'changes':changes,'at':now}
+    return {'status':reason,'top5':[s['name'] for s in top],'changes':changes,'at':now,'next_at':state['next_at']}
 
 @contextmanager
 def lock(md):
@@ -343,21 +357,23 @@ def lock(md):
 def main():
     import argparse
     from urllib.request import urlopen
-    p=argparse.ArgumentParser();p.add_argument('--once',action='store_true');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--once',action='store_true');p.add_argument('--run-now',action='store_true');args=p.parse_args()
     md=ROOT/'.market'
     with lock(md):
         while True:
             try:
-                atomic(md/'optimization-heartbeat.json',{'at':time.time(),'pid':os.getpid()})
+                atomic(md/'optimization-heartbeat.json',{'at':time.time(),'pid':os.getpid(),'schedule':'00/06/12/18 Asia/Seoul','next_at':next_review_at(time.time())})
                 state=read(md/'optimization/state.json',{})
-                if time.time()-state.get('last_at',0)>=21600:
+                if args.run_now or review_due(state,time.time()):
                     with urlopen('https://market.ourolabs.ai/api/board?round=3',timeout=20) as r:board=json.load(r)
                     with urlopen('https://market.ourolabs.ai/api/shops',timeout=20) as r:shops=json.load(r)
                     if board.get('current')!=3:raise ValueError('Round 3 is not current')
-                    print(json.dumps(review(md,board,shops)),flush=True)
+                    print(json.dumps(review(md,board,shops,force=args.run_now)),flush=True)
+                    args.run_now=False
             except Exception as e:
                 append(md/'optimization/errors.jsonl',{'at':time.time(),'type':type(e).__name__,'error':str(e)[:300]})
+                if args.once:raise
             if args.once:return
-            time.sleep(60)
+            time.sleep(max(.1,min(60,next_review_at(time.time())-time.time())))
 
 if __name__=='__main__':main()
