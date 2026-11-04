@@ -313,3 +313,9 @@ tests and six existing seller/buyer contract tests passed. The active seller
 version is 1.2.0; the recommendation worker reloads branding via a restart, and
 procurement changes apply at its next subprocess invocation. See deployment
 records for observed status; post-change ranking gains remain unmeasured.
+
+Deployment confirmation: local and public Agent Cards now return name
+`tomato&potato`, version 1.2.0. Rejoining the same registration retained the deal
+count (534 before/after). The public board response still contained its older
+cached card metadata at that immediate check; the registered nickname remains
+`totato2203-r3`. The live public Agent Card is the confirmed renamed surface.
