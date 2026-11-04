@@ -132,6 +132,18 @@ def risk_cost(unit,now,inventory):
     return (unit['cost']*inventory.get('storage_per_day',.01)*max(0,now-unit.get('supplied_at',now))/86400
             if unit.get('kind')=='goods' else 0)
 
+def guarded_floor(base,arm,unit,inventory,stock,ask,now,policy):
+    """Keep the experimental acceptance threshold consistent on every turn."""
+    floor=min(base['floor'],ask)
+    clearance=(unit.get('expires_at') is not None
+               and unit['expires_at']-now<policy['clearance_hours']*3600)
+    if not clearance and ask>unit['cost']:
+        stressed=inventory.get('balance',0)<policy['cash_reserve']
+        minimum_markup=.03 if stock>=4 or stressed else min(.18,max(.06,arm*.40))
+        floor=min(ask,max(floor,math.ceil(unit['cost']*(1+minimum_markup))))
+    return floor
+
+
 def choose_quote(md,task,unit,inventory,base,now,rng=None):
     rng=rng or random
     p=config(md);cost=unit['cost']
@@ -140,7 +152,9 @@ def choose_quote(md,task,unit,inventory,base,now,rng=None):
               for u in inventory.get('units',[]))
     with db(md) as c:
         old=c.execute('select arm,ask from trials where task=?',(task,)).fetchone()
-        if old:return dict(base,ask=old['ask'],arm=old['arm'])
+        if old:
+            floor=guarded_floor(base,old['arm'],unit,inventory,stock,old['ask'],now,p)
+            return dict(base,ask=old['ask'],floor=floor,arm=old['arm'])
         rows=c.execute('select arm,count(*) n,sum(settled_at is not null) wins,max(at)-min(at) span,avg(coalesce(margin,0)) / max(1,avg(min(180,max(1,coalesce(settled_at-at,180))))) reward from trials where sku=? and grade=? and arm is not null and at between ? and ? group by arm',
                        (unit['sku'],unit.get('grade'),now-7*86400,now-300)).fetchall()
         stats={r['arm']:dict(r) for r in rows};n=sum(r['n'] for r in rows)
@@ -191,14 +205,7 @@ def choose_quote(md,task,unit,inventory,base,now,rng=None):
             # Quote slightly above that median where the published list permits.
             ask=max(ask,min(unit['list_price'],math.ceil(base['market_median']*1.03)))
         ask=min(unit['list_price'],ask)
-        floor=min(base['floor'],ask)
-        if not clearance and ask>cost:
-            # An experimental +50% ask with a +1% floor gives away the experiment.
-            # Protect a bounded slice of its margin, with softer terms for
-            # overstocked units and cash pressure. Never exceed the public ask.
-            stressed=inventory.get('balance',0)<p['cash_reserve']
-            minimum_markup=.03 if stock>=4 or stressed else min(.18,max(.06,arm*.40))
-            floor=min(ask,max(floor,math.ceil(cost*(1+minimum_markup))))
+        floor=guarded_floor(base,arm,unit,inventory,stock,ask,now,p)
         c.execute('insert into trials(task,sku,unit,at,arm,ask,cost,grade,stock,kind) values(?,?,?,?,?,?,?,?,?,?)',
                   (task,unit['sku'],unit.get('unit'),now,arm,ask,cost,unit.get('grade'),stock,unit.get('kind')))
     return dict(base,ask=ask,floor=floor,arm=arm)
