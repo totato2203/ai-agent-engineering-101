@@ -238,7 +238,7 @@ def build(port):
     card = AgentCard(
         name=NAME,
         description=f"A small online shop. Ask for an item by name or SKU. Deterministic inventory-aware pricing; signed receipts and certificates.",
-        version="1.4.0",
+        version="1.4.1",
         default_input_modes=["text/plain"],
         default_output_modes=["application/json", "text/plain"],
         capabilities=AgentCapabilities(streaming=False),
@@ -247,7 +247,11 @@ def build(port):
                            description="Ask for an item, then send a price. The shop answers with a counteroffer or a receipt.",
                            tags=["shopping", "negotiation"], examples=["I want to buy 종가 알뜰맘 포기김치 10kg (G00001)", "52000"])],
     )
-    handler = DefaultRequestHandler(agent_executor=Seller(), task_store=InMemoryTaskStore(), agent_card=card)
+    agent,store=Seller(),InMemoryTaskStore()
+    from seller_handoff import restore
+    restored=restore(agent,store,MARKET_DIR)
+    if restored:print(json.dumps({'event':'seller_handoff_restored','tasks':restored}),flush=True)
+    handler = DefaultRequestHandler(agent_executor=agent, task_store=store, agent_card=card)
     return Starlette(routes=create_agent_card_routes(card) + create_jsonrpc_routes(handler, "/"))
 
 

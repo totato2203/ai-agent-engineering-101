@@ -1,0 +1,338 @@
+{
+  "at": 1793775833.7233548,
+  "sku": [
+    {
+      "value": "G022ce883",
+      "attempts": 5,
+      "sales": 3,
+      "revenue": 29620.0,
+      "gross_margin": 3865.0,
+      "profit_per_sale": 1288.3333333333333,
+      "unsettled_rate": 0.4,
+      "observation_hours": 0.5764623858531316,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G05c7db55",
+      "attempts": 3,
+      "sales": 1,
+      "revenue": 3500.0,
+      "gross_margin": 135.0,
+      "profit_per_sale": 135.0,
+      "unsettled_rate": 0.6666666666666667,
+      "observation_hours": 0.5743342622783449,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G06a54b11",
+      "attempts": 4,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.6083373883035448,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G0b0ca441",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 5062.0,
+      "gross_margin": 661.0,
+      "profit_per_sale": 661.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.5547437881098853,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G0be9ed07",
+      "attempts": 2,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.268159288432863,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G0ec8941a",
+      "attempts": 1,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.47523174226284026,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G1831f2c0",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 6934.0,
+      "gross_margin": 153.0,
+      "profit_per_sale": 153.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.5291693322526084,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G200e39a3",
+      "attempts": 2,
+      "sales": 2,
+      "revenue": 52741.0,
+      "gross_margin": 4874.0,
+      "profit_per_sale": 2437.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.36846179796589745,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G35351812",
+      "attempts": 3,
+      "sales": 1,
+      "revenue": 11461.0,
+      "gross_margin": 209.0,
+      "profit_per_sale": 209.0,
+      "unsettled_rate": 0.6666666666666667,
+      "observation_hours": 0.4007839212814967,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G359695c6",
+      "attempts": 3,
+      "sales": 2,
+      "revenue": 32703.0,
+      "gross_margin": 4266.0,
+      "profit_per_sale": 2133.0,
+      "unsettled_rate": 0.33333333333333337,
+      "observation_hours": 0.6118869918584824,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G37f6364b",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 6076.0,
+      "gross_margin": 290.0,
+      "profit_per_sale": 290.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.5406488710641861,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G582603b2",
+      "attempts": 3,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.6231511203447978,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G5f64d42a",
+      "attempts": 2,
+      "sales": 1,
+      "revenue": 9750.0,
+      "gross_margin": 293.0,
+      "profit_per_sale": 293.0,
+      "unsettled_rate": 0.5,
+      "observation_hours": 0.51483274102211,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G72c7387e",
+      "attempts": 2,
+      "sales": 2,
+      "revenue": 3887.0,
+      "gross_margin": 358.0,
+      "profit_per_sale": 179.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.4268764000468784,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G8074a394",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 9073.0,
+      "gross_margin": 1184.0,
+      "profit_per_sale": 1184.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.3672854903009203,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "G893cb534",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 3700.0,
+      "gross_margin": 90.0,
+      "profit_per_sale": 90.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.27431074062983196,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Ga8d81688",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 1673.0,
+      "gross_margin": 219.0,
+      "profit_per_sale": 219.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.5386499293645223,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Ga9eab746",
+      "attempts": 1,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.1302282855908076,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gc184b6fa",
+      "attempts": 2,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.5592923976977666,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gc511ef55",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 4895.0,
+      "gross_margin": 1205.0,
+      "profit_per_sale": 1205.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.29086608986059825,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gce142806",
+      "attempts": 4,
+      "sales": 1,
+      "revenue": 5744.0,
+      "gross_margin": 274.0,
+      "profit_per_sale": 274.0,
+      "unsettled_rate": 0.75,
+      "observation_hours": 0.6182797273000081,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gd149ad8e",
+      "attempts": 1,
+      "sales": 1,
+      "revenue": 8778.0,
+      "gross_margin": 1145.0,
+      "profit_per_sale": 1145.0,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.35001544621255665,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gd72b6f89",
+      "attempts": 1,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.36452775445249347,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gdbd3b960",
+      "attempts": 2,
+      "sales": 1,
+      "revenue": 1736.0,
+      "gross_margin": 227.0,
+      "profit_per_sale": 227.0,
+      "unsettled_rate": 0.5,
+      "observation_hours": 0.4419823790921105,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Ge2830ca5",
+      "attempts": 2,
+      "sales": 2,
+      "revenue": 19797.0,
+      "gross_margin": 1817.0,
+      "profit_per_sale": 908.5,
+      "unsettled_rate": 0.0,
+      "observation_hours": 0.5358689284986919,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gef4d3036",
+      "attempts": 2,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.48690184003776976,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gfbb10ae2",
+      "attempts": 2,
+      "sales": 1,
+      "revenue": 8140.0,
+      "gross_margin": 2256.0,
+      "profit_per_sale": 2256.0,
+      "unsettled_rate": 0.5,
+      "observation_hours": 0.5517865547206666,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": "Gff5beca5",
+      "attempts": 1,
+      "sales": 0,
+      "revenue": 0,
+      "gross_margin": 0,
+      "profit_per_sale": null,
+      "unsettled_rate": 1.0,
+      "observation_hours": 0.49789378702640535,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    }
+  ],
+  "arms": [
+    {
+      "value": 0.05,
+      "attempts": 9,
+      "sales": 6,
+      "revenue": 39235.0,
+      "gross_margin": 2505.0,
+      "profit_per_sale": 417.5,
+      "unsettled_rate": 0.33333333333333337,
+      "observation_hours": 0.6182797273000081,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    },
+    {
+      "value": 0.15,
+      "attempts": 46,
+      "sales": 19,
+      "revenue": 186035.0,
+      "gross_margin": 21016.0,
+      "profit_per_sale": 1106.1052631578948,
+      "unsettled_rate": 0.5869565217391304,
+      "observation_hours": 0.6231511203447978,
+      "attribution": "legacy quote cohorts; unmatched receipts may be uncertain"
+    }
+  ],
+  "uncertain_attribution": 0
+}

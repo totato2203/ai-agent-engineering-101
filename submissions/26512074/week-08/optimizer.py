@@ -98,7 +98,7 @@ def observe(md, inventory, ledger, now):
                 unit=d.get('unit');price=d.get('amount')
                 if not isinstance(price,(int,float)) or isinstance(price,bool):continue
                 row=c.execute('select * from units where unit=?',(unit,)).fetchone()
-                trial=c.execute('select task,cost from trials where unit=? and settled_at is null order by at desc limit 1',(unit,)).fetchone()
+                trial=c.execute('select task,cost from trials where unit=? and settled_at is null and agreed=? and at<=? order by at desc limit 1',(unit,price,e['ts'])).fetchone()
                 cost=row['cost'] if row else trial['cost'] if trial else None
                 # Old sales are retained, but never assigned to an unobserved arm.
                 if trial:
@@ -126,14 +126,26 @@ def choose_quote(md,task,unit,inventory,base,now,rng=None):
     with db(md) as c:
         old=c.execute('select arm,ask from trials where task=?',(task,)).fetchone()
         if old:return dict(base,ask=old['ask'],arm=old['arm'])
-        rows=c.execute('select arm,count(*) n,sum(settled_at is not null) wins,avg(coalesce(margin,0)) / max(1,avg(min(180,max(1,coalesce(settled_at-at,180))))) reward from trials where sku=? and grade=? and arm is not null and at between ? and ? group by arm',
+        rows=c.execute('select arm,count(*) n,sum(settled_at is not null) wins,max(at)-min(at) span,avg(coalesce(margin,0)) / max(1,avg(min(180,max(1,coalesce(settled_at-at,180))))) reward from trials where sku=? and grade=? and arm is not null and at between ? and ? group by arm',
                        (unit['sku'],unit.get('grade'),now-7*86400,now-300)).fetchall()
         stats={r['arm']:dict(r) for r in rows};n=sum(r['n'] for r in rows)
         arms=list(p['markup_arms'])
         if stock<=2 and sum(r['wins'] or 0 for r in rows)>=10:arms.append(.8)
-        best=max(stats,key=lambda a:stats[a]['reward']) if n>=12 else .15
+        baseline=stats.get(.15,{})
+        # Promote only after both arms have measured outcomes. Otherwise retain
+        # the baseline: a high quote is not evidence of improved profit/hour.
+        proven={a:s for a,s in stats.items() if s['n']>=12 and s['wins']>=4 and s['span']>=1800
+                and baseline.get('n',0)>=12 and s['reward']>baseline.get('reward',0)*1.1
+                and s['wins']/s['n']>=.7*baseline.get('wins',0)/max(1,baseline.get('n',0))}
+        best=max(proven,key=lambda a:proven[a]['reward']) if proven else .15
         # Sparse SKU uses a conservative prior and only 12% exploratory openings.
-        arm=min(arms,key=lambda a:stats.get(a,{}).get('n',0)) if rng.random()<p['exploration'] else best
+        # Count *all* assigned trials to avoid repeatedly selecting the first
+        # tied arm before the five-minute evaluation delay elapses.
+        assigned={r['arm']:r['n'] for r in c.execute('select arm,count(*) n from trials where sku=? and grade=? and arm is not null and at>? group by arm',(unit['sku'],unit.get('grade'),now-7*86400))}
+        demand=c.execute('select count(*) from trials where sku=? and settled_at>?',(unit['sku'],now-7200)).fetchone()[0]
+        eligible=[a for a in arms if a<=.15 or demand>=2]
+        if demand>=2:eligible=[a for a in eligible if a>=.25] or eligible
+        arm=min(eligible,key=lambda a:(assigned.get(a,0),a)) if rng.random()<p['exploration'] else best
         ask=max(base['floor'],min(unit['list_price'],math.ceil(cost*(1+arm))))
         if unit.get('expires_at') is not None and unit['expires_at']-now<p['clearance_hours']*3600:
             ask=min(ask,base['ask'])
@@ -162,6 +174,11 @@ def negotiate(md,task,deal,plan,now):
     holding=risk_cost(deal['unit'],now,{})
     accept=offer-deal['unit']['cost']-holding
     expected=probability*(counter-deal['unit']['cost']-holding)-max(1,deal['unit']['cost']*.001)
+    # Sparse data is uncertainty, not permission to accept a first lowball.
+    # Make one bounded counter unless the offer is already within 3% of ask.
+    clearance=deal['unit'].get('expires_at') is not None and deal['unit']['expires_at']-now<config(md)['clearance_hours']*3600
+    if history['n']<12 and turns<=2 and offer>=floor and offer<ask*.97 and not clearance:
+        return {'action':'ask','price':counter,'type':buyer_type,'reason':'one_counter_before_lowball_acceptance'}
     if offer>=floor and (history['n']<12 or turns>=5 or counter<=offer or expected<=max(0,accept)*(1+p['counter_edge'])):
         return {'action':'accept','type':buyer_type,'accept_ev':accept,'counter_ev':expected}
     if turns>=6:return {'action':'reject','type':buyer_type}

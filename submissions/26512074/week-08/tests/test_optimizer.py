@@ -29,6 +29,18 @@ class OptimizationTests(unittest.TestCase):
     c.execute('update trials set at=?,settled_at=?,margin=? where task=?',(0,100,20,str(i)))
    self.assertLessEqual(q['ask'],170)
   with o.db(self.md) as c:self.assertGreaterEqual(c.execute('select max(arm) from trials').fetchone()[0],.65)
+ def test_high_arm_requires_profit_evidence_and_reverts_on_regression(self):
+  with o.db(self.md) as c:
+   for arm,margin in [(.15,15),(.35,2)]:
+    for i in range(12):
+     at=1000+i*180
+     c.execute('insert into trials(task,sku,unit,grade,arm,at,settled_at,price,cost,margin) values(?,?,?,?,?,?,?,?,?,?)',
+      (str(arm)+str(i),'x','past'+str(i),'B',arm,at,at+5,100+margin,100,margin))
+  self.assertEqual(self.quote('baseline',5000)['arm'],.15)
+  with o.db(self.md) as c:c.execute('update trials set margin=35,price=135 where arm=.35')
+  self.assertEqual(self.quote('winner',5000)['arm'],.35)
+  with o.db(self.md) as c:c.execute('update trials set margin=1,price=101 where arm=.35')
+  self.assertEqual(self.quote('rollback',5000)['arm'],.15)
  def test_only_settlement_counts_and_deduplicates(self):
   self.quote();o.agreement(self.md,'t',140)
   self.assertEqual(o.interval_metrics(self.md,0,2000)['settled'],0)
@@ -44,9 +56,30 @@ class OptimizationTests(unittest.TestCase):
   self.quote(now=100)
   with o.db(self.md) as c:c.execute('update trials set settled_at=1200,price=130,margin=30')
   self.assertEqual(o.interval_metrics(self.md,1000,2000)['gross_margin_known'],30)
+ def test_unagreed_later_quote_cannot_steal_settlement(self):
+  self.quote('signed');o.agreement(self.md,'signed',130)
+  self.quote('inquiry',1001)
+  e={'seq':10,'kind':'settle','ts':1100,'data':{'shop':'totato2203-r3','unit':'u','sku':'x','amount':130}}
+  o.observe(self.md,self.inv,[e],1200)
+  with o.db(self.md) as c:
+   self.assertIsNotNone(c.execute("select settled_at from trials where task='signed'").fetchone()[0])
+   self.assertIsNone(c.execute("select settled_at from trials where task='inquiry'").fetchone()[0])
+ def test_open_tasks_restore_before_restart(self):
+  from seller_handoff import restore
+  from a2a.server.tasks import InMemoryTaskStore
+  import time
+  self.quote()
+  o.atomic(self.md/'inventory.json',self.inv)
+  o.atomic(self.md/'seller-handoff.json',{'at':time.time(),'tasks':[{'id':'t','contextId':'c','status':{'state':'TASK_STATE_INPUT_REQUIRED'}}]})
+  agent=seller.Seller();store=InMemoryTaskStore()
+  self.assertEqual(restore(agent,store,self.md),1)
+  self.assertEqual(agent.open['t']['ask'],115)
+  self.assertIsNotNone(asyncio.run(store.get('t',__import__('a2a.server.context',fromlist=['ServerCallContext']).ServerCallContext())))
  def test_sparse_negotiation_accepts_floor_not_private_budget(self):
   self.quote()
   d={'unit':self.unit,'ask':150,'offer':110,'lines':['buyer: 110']}
+  self.assertEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':150},1001)['action'],'ask')
+  d['lines'] += ['buyer: 110','buyer: 110']
   self.assertEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':150},1001)['action'],'accept')
   d['offer']=90
   self.assertNotEqual(o.negotiate(self.md,'t',d,{'floor':101,'ask':150},1001)['action'],'accept')
