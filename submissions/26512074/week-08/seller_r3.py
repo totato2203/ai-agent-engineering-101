@@ -2,6 +2,7 @@
 Expiring food may sell below sunk cost. Certificates remain enabled.
 """
 import argparse
+import asyncio
 import base64
 import json
 import os
@@ -53,6 +54,16 @@ def sign(receipt):
     return dict(receipt, sig_seller=base64.b64encode(key.sign(canon(body))).decode())
 
 
+async def offer_price(text,ask):
+    raw=text.strip()
+    if ask is not None and re.fullmatch(r'(?:I\s+)?accept(?:\s+(?:your\s+)?(?:offer|price|asking price))?[.!]?',raw,re.I):
+        return ask
+    match=re.fullmatch(r'(?:I\s+)?(?:offer|accept|buy)(?:\s+(?:at|for))?\s*[:=]?\s*(\d+)[.!]?',raw,re.I)
+    if match:
+        return int(match.group(1))
+    return await read_price(text,role='offer',ask=ask)
+
+
 def find_unit(text, taken=()):
     """The in-stock unit that fits what the buyer asked for (category, name or SKU) and expires first,
     skipping units already promised in another open negotiation."""
@@ -66,9 +77,15 @@ def find_unit(text, taken=()):
         return item and {"sku": item, "name": item, "list_price": int(RESERVE[item] * 1.3), "cost": RESERVE[item],
                          "unit": None, "expires_at": None, "supplied_at": 0}
     units = inv.get("units", [])
+    requested = set(re.findall(r'\bG[0-9a-f]{8}\b', text, re.I))
+    requested = {s.lower() for s in requested}
+    lifetime = re.search(r'(?:at least|last|within|need)\s+(\d+(?:\.\d+)?)\s*(?:hours?|h)\b', want)
+    min_hours = float(lifetime.group(1)) if lifetime else 0
     fit = [u for u in units if u["grade"] != "expired" and (u.get("expires_at") or float("inf")) > time.time() and u["unit"] not in taken and
-           ((u.get("category") or "").split(">")[-1].lower() in want or (u.get("name") or "").lower() in want
-            or u["sku"].lower() in want)]
+           (u.get('expires_at') is None or u['expires_at']-time.time() >= min_hours*3600) and
+           ((u['sku'].lower() in requested) if requested else
+            (any(part and part.lower() in want for part in (u.get('category') or '').split('>'))
+             or bool(u.get('name')) and u['name'].lower() in want or u['sku'].lower() in want))]
     named = [u for u in fit if u["sku"].lower() in want]
     fit = named or fit                                   # a SKU the buyer named comes first
     return min(fit, key=lambda u: (u["expires_at"] or float("inf"), u["supplied_at"]), default=None)
@@ -78,6 +95,16 @@ class Seller(AgentExecutor):
     def __init__(self):
         self.open = {}  # task id -> {"unit", "ask", "offer", "lines"}
         self.promised = set()
+        self.promised_at = {}
+
+    def release_stale(self,now):
+        for identity,deal in list(self.open.items()):
+            if now-deal.get('seen_at',now)>180:
+                del self.open[identity]
+        for unit,at in list(self.promised_at.items()):
+            if now-at>900:
+                self.promised.discard(unit)
+                del self.promised_at[unit]
 
     async def execute(self, context, event_queue):
         task = context.current_task
@@ -87,17 +114,21 @@ class Seller(AgentExecutor):
         up = TaskUpdater(event_queue=event_queue, task_id=task.id, context_id=task.context_id)
         say = lambda text: up.new_agent_message(parts=[new_text_part(text)])
         text = get_message_text(context.message) or ""
+        self.release_stale(time.time())
         deal = self.open.get(task.id)
 
         if deal is None:
             unit = find_unit(text, self.promised | {d["unit"]["unit"] for d in self.open.values() if d["unit"]["unit"]})
             if unit is None:
+                print(json.dumps({'event':'seller_unavailable','task':task.id,
+                                  'requested_skus':re.findall(r'\bG[0-9a-f]{8}\b',text,re.I)}),flush=True)
                 await up.reject(say("Sorry, we have none of that in stock."))
                 return
-            deal = self.open[task.id] = {"unit": unit, "ask": None, "offer": None, "lines": [f"buyer: {text}"]}
+            deal = self.open[task.id] = {"unit": unit, "ask": None, "offer": None, "lines": [f"buyer: {text}"], 'seen_at':time.time()}
         else:
             deal["lines"].append(f"buyer: {text}")
-            deal["offer"] = await read_price(text, role="offer", ask=deal["ask"])
+            deal["offer"] = await offer_price(text,deal["ask"])
+        deal['seen_at']=time.time()
 
         u = deal["unit"]
         price_plan = pricing(u, time.time())
@@ -106,16 +137,21 @@ class Seller(AgentExecutor):
             await up.reject(say("That unit expired; please request a fresh quote."))
             return
         reserve = price_plan["floor"]
-        try:
-            move = await decide("seller_turn" if deal["ask"] is not None else "seller_open",
+        if deal['offer'] is not None and deal['offer']>=reserve and deal['ask'] is not None and deal['offer']>=deal['ask']:
+            move={'action':'accept'}
+        else:
+          try:
+            move = await asyncio.wait_for(decide("seller_turn" if deal["ask"] is not None else "seller_open",
                 {"reserve": reserve, "list_price": price_plan["ask"],
                  "last_offer": deal["offer"], "item_id": u["sku"]},
-                {"transcript": deal["lines"]})
-        except Exception:
+                {"transcript": deal["lines"]}),timeout=12)
+          except Exception:
             move = {"action": "accept" if deal["offer"] is not None and
-                    deal["offer"] >= max(reserve, deal["ask"] or price_plan["ask"])
+                    deal["offer"] >= reserve
                     else "ask", "price": deal["ask"] or price_plan["ask"]}
         action = (move or {}).get("action")
+        if action=='reject' and deal['offer'] is not None and deal['offer']>=reserve:
+            action='accept'
         if action == "accept" and (deal["offer"] is None or deal["offer"] < reserve):
             print(f"[guard] accept of {deal['offer']} below cost {reserve} -> counter", flush=True)
             action, move = "counter", {"price": deal["ask"] or price_plan["ask"]}
@@ -128,8 +164,10 @@ class Seller(AgentExecutor):
             receipt = sign(receipt)
             if u["unit"]:
                 self.promised.add(u["unit"])
+                self.promised_at[u['unit']]=time.time()
             await up.add_artifact(parts=[new_data_part(receipt)], name="receipt")
             await up.complete(say(f"Deal: {u['name']} at {price}."))
+            print(json.dumps({'event':'seller_agreed','task':task.id,'sku':u['sku'],'price':price}),flush=True)
             del self.open[task.id]
             return
         if action == "reject":
@@ -144,6 +182,7 @@ class Seller(AgentExecutor):
         if price < reserve:                             # the harness may forget the cost; the code does not
             print(f"[guard] ask {price} below cost {reserve} -> {reserve}", flush=True)
             price = reserve
+        price=max(reserve,min(price,deal['ask'] or price_plan['ask']))
         deal["ask"] = int(price)
         reply = (f"{u['name']}: asking {deal['ask']}. Send your offer as a number." if len(deal["lines"]) == 1
                  else f"Counteroffer: {deal['ask']}.")
@@ -161,7 +200,7 @@ def build(port):
     card = AgentCard(
         name=NAME,
         description=f"A small online shop. Ask for an item by name or SKU. A coding harness ({CMD.split()[0]}) negotiates the price.",
-        version="1.0.0",
+        version="1.1.0",
         default_input_modes=["text/plain"],
         default_output_modes=["application/json", "text/plain"],
         capabilities=AgentCapabilities(streaming=False),

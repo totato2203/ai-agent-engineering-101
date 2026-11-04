@@ -228,3 +228,35 @@ Validation: three comment/vote tests and five procurement/pricing tests passed.
 The singleton worker was restarted to load the community integration; the main
 Round 3 seller/buyer operator remains running. Actual delivery is recorded in
 outbox.sent.jsonl; validation alone is not a claim of successful live comments.
+
+## Seller no-deal repair (2026-11-04)
+
+Public ledger entries 2338761 and 2338765 refer to the same order
+(o-58935027d332), same buyer and same shop URL. Both have receipt=null and the
+same generic review, so they are duplicate result records for one unsuccessful
+negotiation, not two independently identified payment failures. The records do
+not reveal the exact private negotiation reason.
+
+Code inspection and a current seller harness trace revealed a concrete SKU
+selection defect: a request naming Gce142806 was assigned G1fdeffa7 because the
+starter fell back to another product in the same category. The revised seller
+never substitutes a different SKU when an explicit catalog SKU is requested.
+It also filters food units by the buyer's stated minimum shelf life.
+
+Other corrections: exact acceptance phrases and numeric offers use a direct
+parser; an offer meeting the last ask and floor immediately produces the signed
+receipt. Model calls have a 12-second deadline with a profitable-offer fallback,
+model rejection cannot discard an already profitable offer, and counteroffers
+cannot increase above the prior ask or computed opening ask. Abandoned open
+negotiations release reservations after 180 seconds; unconsumed receipt holds
+expire after 900 seconds. Explicit unavailable/agreed events improve diagnosis.
+
+Three targeted repair tests and six existing contract tests passed. Seller
+Agent Card version 1.1.0 identifies the deployed repair. Only the seller child
+was stopped; the official kit watchdog restarts it on its original local port,
+retaining the market registration, tunnel, buyer and background workers.
+See logs/seller-repair-deployment.json for actual restart confirmation.
+The snapshot contained 549 units/149 SKUs and 861,219 balance, so blanket stock
+expansion was not indicated. Genuine absent SKUs or insufficient buyer budgets
+can still correctly end without a deal; successful conversion uplift is not yet
+measured.
