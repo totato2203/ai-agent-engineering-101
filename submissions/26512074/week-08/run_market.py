@@ -10,8 +10,7 @@ from launch_round3 import configure,main as market_main
 def worker(once=False,dry_run=False):
     configure()
     from recommendations import tick
-    from round3 import refresh_ledger,write,read,lines
-    from community import service
+    from round3 import refresh_ledger,write
     md=Path('.market')
     md.mkdir(exist_ok=True)
     with (md/'recommendation-worker.lock').open('a+b') as lock:
@@ -36,9 +35,6 @@ def worker(once=False,dry_run=False):
             write(md/'recommendation-heartbeat.json',{'at':time.time(),'pid':os.getpid()})
             try:
                 refresh_ledger(md)
-                community=service(md,read(md/'inventory.json',{}),read(md/'forum.json',[]),
-                                  lines(md/'ledger.jsonl'),time.time(),enabled=not dry_run)
-                print(json.dumps({'at':time.time(),'community':community}),flush=True)
                 result=tick(md,enabled=not dry_run,refresh=once)
                 print(json.dumps({'at':time.time(),**result}),flush=True)
             except Exception as exc:

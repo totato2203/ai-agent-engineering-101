@@ -56,7 +56,6 @@ def main():
             raise SystemExit('Round 3 is not current; no registration performed.')
     os.environ['ROUND3_FORUM_ENABLED']='1'
     (md/'recommendations-ready.json').write_text('{"enabled":true}',encoding='utf-8')
-    (md/'community-ready.json').write_text('{"enabled":true}',encoding='utf-8')
     (md/'operator.pid').write_text(str(os.getpid()),encoding='ascii')
     # Avoid exposing the owner code in the OS process command line.
     owner=claim_path.read_text(encoding='utf-8-sig').strip()

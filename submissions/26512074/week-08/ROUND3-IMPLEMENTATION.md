@@ -260,3 +260,14 @@ The snapshot contained 549 units/149 SKUs and 861,219 balance, so blanket stock
 expansion was not indicated. Genuine absent SKUs or insufficient buyer budgets
 can still correctly end without a deal; successful conversion uplift is not yet
 measured.
+
+## Community replies removed; scheduled posts restored
+
+Removed community.py, its tests, the worker service call and startup enable flag.
+Removed the gate that suspended ordinary shop promotion. Pending community-owned
+thread replies and votes are cancelled when present; previous acknowledgements
+and community history are retained as evidence. No historical posts are deleted.
+The recommendation worker was restarted without community actions. Five-minute
+shop promotions and five-minute evidence-based four-to-five product recommendation
+analysis resume on their original roles. Recommendation posts still require
+sufficient evidence and meaningful changes. Three existing promotion tests pass.
