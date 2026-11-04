@@ -24,6 +24,7 @@ from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 import time
 from round3 import pricing,read,lines
 from shop_profit import DISPLAY,recovery_price,recent_ledger
+from after_sales import warranty_request,warranty_offer,release_warranty
 from harness import decide
 from policy import read_price
 CMD = "Codex"
@@ -101,6 +102,8 @@ class Seller(AgentExecutor):
     def release_stale(self,now):
         for identity,deal in list(self.open.items()):
             if now-deal.get('seen_at',now)>180:
+                if deal.get('unit',{}).get('unit'):
+                    release_warranty(MARKET_DIR,deal['unit']['unit'])
                 del self.open[identity]
         for unit,at in list(self.promised_at.items()):
             if now-at>900:
@@ -125,9 +128,12 @@ class Seller(AgentExecutor):
                                   'requested_skus':re.findall(r'\bG[0-9a-f]{8}\b',text,re.I)}),flush=True)
                 await up.reject(say("Sorry, we have none of that in stock."))
                 return
-            deal = self.open[task.id] = {"unit": unit, "ask": None, "offer": None, "lines": [f"buyer: {text}"], 'seen_at':time.time()}
+            deal = self.open[task.id] = {"unit": unit, "ask": None, "offer": None, "lines": [f"buyer: {text}"], 'seen_at':time.time(),
+                                       'warranty_hours':6 if unit.get('kind')=='goods' and warranty_request(text) else 0}
         else:
             deal["lines"].append(f"buyer: {text}")
+            if deal['unit'].get('kind')=='goods' and warranty_request(text):
+                deal['warranty_hours']=6
             deal["offer"] = await offer_price(text,deal["ask"])
         deal['seen_at']=time.time()
 
@@ -135,9 +141,19 @@ class Seller(AgentExecutor):
         price_plan = recovery_price(u,read(MARKET_DIR/'inventory.json',{}),
                                     recent_ledger(MARKET_DIR/'ledger.jsonl',time.time()),time.time())
         if price_plan is None:
+            if u.get('unit'):
+                release_warranty(MARKET_DIR,u['unit'])
             self.open.pop(task.id, None)
             await up.reject(say("That unit expired; please request a fresh quote."))
             return
+        if deal.get('warranty_hours'):
+            price_plan['ask']=math.ceil(price_plan['ask']*1.1)
+            price_plan['floor']=math.ceil(price_plan['floor']*1.1)
+            if not warranty_offer(MARKET_DIR,u,price_plan['ask'],read(MARKET_DIR/'inventory.json',{}).get('balance',0),time.time()):
+                release_warranty(MARKET_DIR,u['unit'])
+                self.open.pop(task.id,None)
+                await up.reject(say('The requested warranty cannot currently be funded. No purchase is authorized.'))
+                return
         reserve = price_plan["floor"]
         if deal['offer'] is not None and deal['offer']>=reserve:
             move={'action':'accept'}
@@ -163,7 +179,16 @@ class Seller(AgentExecutor):
             if u["unit"]:
                 receipt["unit"] = u["unit"]
             receipt["cert"] = True
+            if deal.get('warranty_hours'):
+                if not warranty_offer(MARKET_DIR,u,price,read(MARKET_DIR/'inventory.json',{}).get('balance',0),time.time()):
+                    release_warranty(MARKET_DIR,u['unit'])
+                    self.open.pop(task.id,None)
+                    await up.reject(say('Warranty reserve is unavailable; no sale completed.'))
+                    return
+                receipt['warranty_hours']=6
             receipt = sign(receipt)
+            if deal.get('warranty_hours'):
+                release_warranty(MARKET_DIR,u['unit'],issued=True,price=price,now=time.time())
             if u["unit"]:
                 self.promised.add(u["unit"])
                 self.promised_at[u['unit']]=time.time()
@@ -173,6 +198,8 @@ class Seller(AgentExecutor):
             del self.open[task.id]
             return
         if action == "reject":
+            if u.get('unit'):
+                release_warranty(MARKET_DIR,u['unit'])
             await up.reject(say("No deal."))
             del self.open[task.id]
             return
@@ -188,12 +215,18 @@ class Seller(AgentExecutor):
         deal["ask"] = int(price)
         reply = (f"{u['name']}: asking {deal['ask']}. Send your offer as a number." if len(deal["lines"]) == 1
                  else f"Counteroffer: {deal['ask']}.")
+        if deal.get('warranty_hours'):
+            reply+=' Includes a 6-hour market-enforced full refund if the goods break during warranty; the quote includes the warranty surcharge.'
+        elif u.get('kind')=='goods':
+            reply+=' A priced 6-hour warranty can be requested in a new quote.'
         deal["lines"].append(f"you: {reply}")
         await up.requires_input(say(reply))
 
     async def cancel(self, context, event_queue):
         task = context.current_task
-        self.open.pop(task.id, None)
+        deal=self.open.pop(task.id, None)
+        if deal and deal['unit'].get('unit'):
+            release_warranty(MARKET_DIR,deal['unit']['unit'])
         await TaskUpdater(event_queue=event_queue, task_id=task.id, context_id=task.context_id).cancel()
 
 
@@ -202,7 +235,7 @@ def build(port):
     card = AgentCard(
         name=NAME,
         description=f"A small online shop. Ask for an item by name or SKU. A coding harness ({CMD.split()[0]}) negotiates the price.",
-        version="1.2.0",
+        version="1.3.0",
         default_input_modes=["text/plain"],
         default_output_modes=["application/json", "text/plain"],
         capabilities=AgentCapabilities(streaming=False),

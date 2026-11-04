@@ -49,7 +49,17 @@ def buy_budget(inventory):
 
 
 def own_events(ledger):
-    return [e for e in ledger if e.get('data',{}).get('shop') in ALIASES]
+    tags=ownership_tags()
+    return [e for e in ledger if e.get('data',{}).get('shop') in tags]
+
+
+def ownership_tags():
+    path=Path(__file__).resolve().parent/'.market/shop-identity.json'
+    try:
+        data=json.loads(path.read_text(encoding='utf-8-sig'))
+    except (FileNotFoundError,ValueError):
+        data={}
+    return ALIASES | set(data.get('urls',[]))
 
 
 def recovery_price(unit,inventory,ledger,now):
@@ -83,7 +93,8 @@ def recovery_price(unit,inventory,ledger,now):
         hours=(unit['expires_at']-now)/3600
         if hours<6:
             ask=max(1,math.floor(ask*max(.1,hours/6)))
-            floor=max(1,math.floor(ask*.8))
+            floor=max(1,math.ceil(cost*(.1 if hours<1 else .2)))
+            ask=max(floor,ask)
     return {'ask':ask,'floor':floor,'market_samples':len(prices),
             'market_median':median(prices) if len(prices)>=3 else None,
             'cash_recovery':stressed}

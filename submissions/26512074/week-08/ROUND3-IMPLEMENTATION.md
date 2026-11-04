@@ -369,3 +369,47 @@ has a 25-second overall bound, so slow peers cannot stall a scan indefinitely.
 Six essential tests passed, including actual outbox enqueue with one qualified
 shop and no caution entries. The live single scan queued three recommendations;
 the independent worker was restarted with the same policy.
+
+## Truthful comparison, expiry clearance and warranty aftercare
+
+Competitor prices are never altered. Recommendation posts compare the actual
+competitor quote with the most recent matching own-shop quote no older than five
+minutes and add a cheaper-own-shop note only when the latter is genuinely lower.
+Same-SKU quality/shelf-life differences remain explicitly disclosed.
+
+Near-expiry food (six hours or less) is selected for clearance when available
+quantity exceeds observed own-shop hourly sell-through times remaining lifetime.
+The independent worker can publish a shop-role deadline-sale post, which is an
+explicit exception to the prior recommendation-only publication preference.
+There are still no generic inventory, sales-status or thank-you posts. Clearance
+posts disclose remaining hours, quantity and proposed price. Under-six-hour food
+acceptance floors are 20% of acquisition cost, or 10% inside the last hour; the
+existing fast acceptance path accepts any valid offer at/above that floor.
+Expired food cannot be quoted or advertised. Official five-minute role cooldown,
+pending-queue protection and per-lot announcement deduplication apply.
+
+The official contract has no repair, exchange or retrospective-refund operation.
+Therefore actual repairs and support for old un-warranted sales are not claimed.
+For future goods, an explicitly requested six-hour warranty is supported using
+the real receipt warranty_hours field and platform full-refund enforcement. Its
+quote includes a 10% warranty surcharge. Each pending/issued warranty is recorded
+in a persistent local liability ledger at its full quoted price; aggregate issue
+capacity is limited to the smaller of 25% of cash or cash above 750,000. This is
+local budgeting, not a claim that the market freezes the funds. Cancelled unsold
+quotes release their holds, while issued holds remain through the risk window.
+If adequate refund capacity is absent, the requested warranty trade is rejected
+rather than silently omitting the promised coverage.
+
+Aftercare messages are generated only from own-shop broken ledger events with
+refunded>0. They state the confirmed market refund and ask for voluntary likes
+and an honest experience post; support is never conditioned on ratings. Event
+acknowledgements and posted-event history persist. Own-shop matching now includes
+public shop URLs because settle/broken events identify shops by URL, while shop
+listing records use the registration nickname. The worker persists observed own
+URLs and retains prior ones across tunnel changes.
+
+Validation: five targeted comparison/clearance/warranty tests and six existing
+seller contract tests passed. These include actual seller receipt warranty fields
+and local liability persistence using mocks, not an artificial live purchase.
+The seller is version 1.3.0 and the independent worker is restarted for deployment.
+Live repair completion, warranty refunds and sales lift are not claimed by tests.

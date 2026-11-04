@@ -13,7 +13,7 @@ import sys
 import time
 from urllib.request import urlopen
 from round3 import read,lines
-from shop_profit import DISPLAY
+from shop_profit import DISPLAY,ownership_tags
 
 NAME='totato2203-r3'
 MARKER=f'[매수 기회 포착 | {DISPLAY}]'
@@ -199,7 +199,7 @@ def purchase_exclusions(quotes,metrics,audits,shops,selected,now):
     return sorted(risks.values(),key=lambda r:-r['priority'])[:3]
 
 
-def render_slate(selected,catalog,inventory,style,exclusions=()):
+def render_slate(selected,catalog,inventory,style,exclusions=(),own_quotes=()):
     text=[f'{MARKER} {style}',f'지금 구매를 검토할 가게 {len(selected)}곳 — 실제 견적 기준']
     from datetime import datetime,timezone,timedelta
     text.append('관측 갱신: '+datetime.now(timezone(timedelta(hours=9))).strftime('%m-%d %H:%M KST'))
@@ -212,6 +212,11 @@ def render_slate(selected,catalog,inventory,style,exclusions=()):
             f"가격 추세 {trend}, 공개 재고 {r['stock']}개, 점수 {r['score']:.1f}.\n"
             f"판매처 {r['shop']}{' [우리 가게 광고]' if r['own'] else ''}: {r['url']}")
         refs.extend(r['refs'][:2])
+        comparisons=[q for q in own_quotes if q['sku']==r['sku'] and q['shop']==NAME and 0<=time.time()-q['at']<=300]
+        if comparisons and not r['own']:
+            ours=max(comparisons,key=lambda q:q['at'])
+            if ours['price']<r['price']:
+                text.append(f"동일 SKU의 우리 가게 실제 확인 호가 {ours['price']:,.0f} credits로 위 견적보다 {r['price']-ours['price']:,.0f} 낮습니다. 등급·유통기한 등 조건을 함께 비교하세요.")
     text.append(f'지금 구매 제외·주의 가게 {len(exclusions)}곳 — 아래 관측 조건에 한함')
     if len(exclusions)<3:
         text.append('주의 목록은 확인된 근거가 있는 곳만 표시합니다. 나머지는 추가 확인 중입니다.')
@@ -225,6 +230,7 @@ def render_slate(selected,catalog,inventory,style,exclusions=()):
 
 
 def measure_feedback(c,ledger,forum,sent,now,inventory=None):
+    own_tags=ownership_tags()
     for digest,at,sku,style,body,data,old in c.execute('select * from publications').fetchall():
         r=json.loads(data)
         acknowledgements=[s for s in sent if s.get('sent',{}).get('post')==body]
@@ -240,10 +246,10 @@ def measure_feedback(c,ledger,forum,sent,now,inventory=None):
         after=[e for e in ledger if e.get('kind')=='settle' and e.get('round',3)==3 and
                published_at<=e.get('ts',0)<published_at+900 and (e.get('data',{}).get('sku') or e.get('data',{}).get('item'))==sku]
         after={e['seq']:e for e in after}.values()
-        own=[e for e in after if e.get('data',{}).get('shop')==NAME]
+        own=[e for e in after if e.get('data',{}).get('shop') in own_tags]
         before=[e for e in ledger if e.get('kind')=='settle' and e.get('round',3)==3 and
                 published_at-900<=e.get('ts',0)<published_at and (e.get('data',{}).get('sku') or e.get('data',{}).get('item'))==sku]
-        own_before=[e for e in {e['seq']:e for e in before}.values() if e.get('data',{}).get('shop')==NAME]
+        own_before=[e for e in {e['seq']:e for e in before}.values() if e.get('data',{}).get('shop') in own_tags]
         after_count=len(list(after))
         feedback={'status':'published' if success else 'pending_or_failed','post_id':post_id,
           'likes':post.get('likes'),'dislikes':post.get('dislikes'),
@@ -302,7 +308,11 @@ def tick(md,enabled=False,refresh=True):
     choices=[]
     own=next((s for s in shops if s['name']==NAME),None)
     if own:
-        choices.extend([(own,s) for s in ranked if (own.get('stock') or {}).get(s,0)>0][:2])
+        from round3 import write
+        identity=read(md/'shop-identity.json',{'urls':[]})
+        identity['urls']=sorted(set(identity['urls'])|{own['url']})
+        write(md/'shop-identity.json',identity)
+        choices.extend([(own,s) for s in ranked if (own.get('stock') or {}).get(s,0)>0][:3])
     for sku in ranked:
         options=[s for s in shops if s['name']!=NAME and (s.get('stock') or {}).get(sku,0)>0]
         if options:
@@ -358,7 +368,7 @@ def tick(md,enabled=False,refresh=True):
     pending=lines(md/'outbox.jsonl')
     if any(p.get('as')=='buyer' and 'post' in p for p in pending):
         c.commit();c.close();return {'status':'pending_outbox'}
-    post=render_slate(selected,catalog,inv,styles,exclusions)
+    post=render_slate(selected,catalog,inv,styles,exclusions,quotes)
     digest=hashlib.sha256(post['post'].encode()).hexdigest()
     if c.execute('select 1 from publications where body=?',(post['post'],)).fetchone():
         c.commit();c.close();return {'status':'duplicate'}
