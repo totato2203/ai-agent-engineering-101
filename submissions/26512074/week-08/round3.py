@@ -107,8 +107,14 @@ def procurement(inv,catalog,ledger,now):
             survival=min(1,r['rate']*p.get('shelf_hours',24)/24) if p['kind']=='food' and own_sales else 1
             net=(expected-estimated_cost-storage)*survival-estimated_cost*(1-survival)
             if own_sales and net<=0:continue
-            roi=net/(estimated_cost*max(wait,1/24))
-            candidates.append((roi,sku,need,worst))
+            roi=net/(max(estimated_cost,1)*max(wait,1/24))
+            # Pure percentage ROI overweights cheap, low-ticket goods. For SKUs
+            # with proven settlements, also reward absolute profit per day,
+            # scaled by sqrt(capital) to avoid buying slow luxury stock blindly.
+            profit_velocity=net/max(wait,1/24)/math.sqrt(max(estimated_cost,1))
+            confidence=min(1,len(own_sales)/3)
+            score=roi+confidence*profit_velocity
+            candidates.append((score,sku,need,worst))
     buy=[]
     probe_left=max(0,6-sum(held.values()))
     for _,sku,need,worst_cost in sorted(candidates,key=lambda x:(-x[0],x[3],x[1])):
