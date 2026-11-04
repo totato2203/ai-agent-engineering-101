@@ -78,7 +78,7 @@ class ContractTests(unittest.TestCase):
             result=restock_hook(md,10000)
             self.assertEqual(result,{'buy':[]})
             self.assertFalse((md/'outbox.jsonl').exists())
-            self.assertTrue((md/'forum-drafts.json').exists())
+            self.assertFalse((md/'forum-drafts.json').exists())
 
     def test_a2a_app_build(self):
         self.assertTrue(seller_r3.build(9301).routes)

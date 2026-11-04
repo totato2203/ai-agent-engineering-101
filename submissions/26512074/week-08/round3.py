@@ -137,16 +137,6 @@ def restock_hook(state,now=None):
     if os.environ.get('ROUND3_FORUM_ENABLED')=='1' and (md/'recommendations-ready.json').exists():
         from recommendations import ensure_worker
         ensure_worker(md)
-    from shop_promotion import queue_promotion
-    queue_promotion(md,inv,ledger,now,enabled=os.environ.get('ROUND3_FORUM_ENABLED')=='1')
-    memory=read(md/'strategy-memory.json',{})
-    units=[u for u in inv.get('units',[]) if pricing(u,now)]
-    if units and now-memory.get('last_draft',0)>=1800:
-        text='Current stock: '+'; '.join(u['sku']+' '+u['name'] for u in units[:3])
-        text+='. Ask for a quote; check certificates and remaining shelf life. Have a good trading day!'
-        write(md/'forum-drafts.json',[{'post':text,'as':'buyer','refs':[]}])
-        memory['last_draft']=now
-    write(md/'strategy-memory.json',memory)
     return result
 
 def main():

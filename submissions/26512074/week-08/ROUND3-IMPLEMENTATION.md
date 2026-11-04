@@ -341,3 +341,13 @@ The final line is a short tomato&potato advertisement, with no inventory list.
 Nine essential tests passed (three news tests and six recommendation tests).
 The independent recommendation worker was restarted; the next restock hook
 loads sales-only shop news. Buyer, seller and inventory policies are unchanged.
+
+## Recommendation-only publication
+
+Removed the restock hook's shop-news publisher and inventory draft generator.
+Only the independent market-based recommendation worker now schedules posts.
+Pending non-recommendation posts were cancelled where present; historical posts
+and acknowledgement logs are preserved. The existing three recommended shops,
+three evidence-based caution shops and short final advertisement remain.
+Procurement subprocesses load this change on their next invocation; no running
+seller or buyer restart is required. Syntax verification passed.
