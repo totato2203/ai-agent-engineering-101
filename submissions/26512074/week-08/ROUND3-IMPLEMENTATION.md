@@ -351,3 +351,21 @@ and acknowledgement logs are preserved. The existing three recommended shops,
 three evidence-based caution shops and short final advertisement remain.
 Procurement subprocesses load this change on their next invocation; no running
 seller or buyer restart is required. Syntax verification passed.
+
+## Unblock periodic recommendation publication
+
+The strict requirement for both three positive shops and three caution shops
+was suppressing complete reports even when actual purchase opportunities were
+available (the inspected preview had 18 quotes and two qualified offers).
+That hard gate is removed. A report now publishes one to three independently
+qualified shops, and zero to three evidence-backed caution entries; missing
+entries are explicitly left unfilled. No recommendation is fabricated to meet
+a count. The five-minute global interval and pending-queue protection remain.
+
+After the five-minute interval, unchanged opportunities may be included in an
+updated observation report instead of being suppressed forever by novelty
+filters. The post includes its KST observation refresh time. Each quote request
+has a 25-second overall bound, so slow peers cannot stall a scan indefinitely.
+Six essential tests passed, including actual outbox enqueue with one qualified
+shop and no caution entries. The live single scan queued three recommendations;
+the independent worker was restarted with the same policy.

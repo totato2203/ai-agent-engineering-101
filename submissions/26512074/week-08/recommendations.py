@@ -19,7 +19,7 @@ NAME='totato2203-r3'
 MARKER=f'[매수 기회 포착 | {DISPLAY}]'
 INTERVAL=300
 MAX_RECOMMENDATIONS=3
-MIN_RECOMMENDATIONS=3
+MIN_RECOMMENDATIONS=1
 MAX_QUOTES=24
 
 
@@ -116,7 +116,12 @@ async def fetch_quotes(choices,catalog):
                             await client.cancel(task['id'])
                         except Exception:
                             pass
-    return [q for q in await asyncio.gather(*(one(*choice) for choice in choices)) if q]
+    async def bounded(choice):
+        try:
+            return await asyncio.wait_for(one(*choice),timeout=25)
+        except asyncio.TimeoutError:
+            return None
+    return [q for q in await asyncio.gather(*(bounded(choice) for choice in choices)) if q]
 
 
 def stock_ad(inv):
@@ -154,7 +159,7 @@ def select_slate(results,c,priority,limit=MAX_RECOMMENDATIONS):
             continue
         previous=next((row for row in c.execute('select data from publications where sku=? order by at desc',(r['sku'],))
                        if json.loads(row[0]).get('shop')==r['shop']),None)
-        if previous:
+        if previous and time.time()-c.execute('select max(at) from publications where sku=?',(r['sku'],)).fetchone()[0]<INTERVAL:
             old=json.loads(previous[0])
             meaningful=(abs(r['price']/old['price']-1)>=.02 or
                         r['count']>=old['count']*1.25 or abs(r['score']-old['score'])>=8)
@@ -196,6 +201,8 @@ def purchase_exclusions(quotes,metrics,audits,shops,selected,now):
 
 def render_slate(selected,catalog,inventory,style,exclusions=()):
     text=[f'{MARKER} {style}',f'지금 구매를 검토할 가게 {len(selected)}곳 — 실제 견적 기준']
+    from datetime import datetime,timezone,timedelta
+    text.append('관측 갱신: '+datetime.now(timezone(timedelta(hours=9))).strftime('%m-%d %H:%M KST'))
     refs=[]
     for i,r in enumerate(selected,1):
         trend=f"{r['medium_trend']*100:+.1f}%" if r['medium_trend'] is not None else '표본 부족'
@@ -206,6 +213,8 @@ def render_slate(selected,catalog,inventory,style,exclusions=()):
             f"판매처 {r['shop']}{' [우리 가게 광고]' if r['own'] else ''}: {r['url']}")
         refs.extend(r['refs'][:2])
     text.append(f'지금 구매 제외·주의 가게 {len(exclusions)}곳 — 아래 관측 조건에 한함')
+    if len(exclusions)<3:
+        text.append('주의 목록은 확인된 근거가 있는 곳만 표시합니다. 나머지는 추가 확인 중입니다.')
     for i,r in enumerate(exclusions,1):
         text.append(f"{i}. {r['shop']}: {r['reason']} {r['url']}")
         refs.extend(r['refs'])
@@ -343,8 +352,8 @@ def tick(md,enabled=False,refresh=True):
              'feedback':[json.loads(row[0]) for row in c.execute('select feedback from publications where feedback is not null')]}
     (md/'recommendation-preview.json').write_text(json.dumps(preview,ensure_ascii=False,indent=2),encoding='utf-8')
     latest=c.execute('select max(at) from publications').fetchone()[0]
-    if len(selected)<MIN_RECOMMENDATIONS or len(exclusions)<3 or not enabled or latest and now-latest<INTERVAL:
-        c.commit();c.close();return {'status':'insufficient_evidence_for_three_plus_three' if len(selected)<MIN_RECOMMENDATIONS or len(exclusions)<3 else 'dry_run_or_interval',
+    if not selected or not enabled or latest and now-latest<INTERVAL:
+        c.commit();c.close();return {'status':'no_evidence_backed_recommendation' if not selected else 'dry_run_or_interval',
                                    'recommendation_count':len(selected),**{k:preview[k] for k in ('quotes_checked','qualified')}}
     pending=lines(md/'outbox.jsonl')
     if any(p.get('as')=='buyer' and 'post' in p for p in pending):

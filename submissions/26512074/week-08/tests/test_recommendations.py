@@ -61,7 +61,7 @@ class RecommendationTests(unittest.TestCase):
             self.assertTrue(post['post'].splitlines()[-1].startswith('광고 | tomato&potato:'))
             self.assertIn('30.0%',post['post'])
             c.close()
-    def test_fewer_than_four_evidence_backed_products_do_not_publish(self):
+    def test_partial_evidence_publishes_without_fabricating_three_shops(self):
         import io,json
         from unittest.mock import patch,AsyncMock
         with tempfile.TemporaryDirectory() as d:
@@ -77,8 +77,11 @@ class RecommendationTests(unittest.TestCase):
                  patch.object(r,'urlopen',return_value=io.BytesIO(json.dumps(shops).encode())), \
                  patch.object(r,'fetch_quotes',new=AsyncMock(return_value=quotes)):
                 result=r.tick(md,enabled=True)
-            self.assertEqual(result['status'],'insufficient_evidence_for_three_plus_three')
-            self.assertFalse((md/'outbox.jsonl').exists())
+            self.assertEqual(result['status'],'queued')
+            self.assertEqual(result['recommendation_count'],1)
+            post=json.loads((md/'outbox.jsonl').read_text(encoding='utf-8'))
+            self.assertIn('가게 1곳',post['post'])
+            self.assertIn('가게 0곳',post['post'])
     def test_exclusions_use_actual_recent_evidence_and_no_positive_overlap(self):
         f=r.features(self.events,2,[],'x',self.now)
         shops=[{'name':'bad','url':'http://bad'},{'name':'expired','url':'http://expired'}]
