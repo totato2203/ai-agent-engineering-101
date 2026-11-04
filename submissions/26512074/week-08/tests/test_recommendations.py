@@ -45,20 +45,20 @@ class RecommendationTests(unittest.TestCase):
             self.assertEqual(f['status'],'published')
             self.assertIsNone(f['visits'])
             c.close()
-    def test_slate_five_unique_products_with_evidence_and_shared_ad(self):
+    def test_slate_three_distinct_shops_and_short_final_ad(self):
         f=r.features(self.events,2,[],'x',self.now)
         base=r.score(f,{'sku':'x','shop':r.NAME,'url':'http://shop','price':70,'at':self.now},self.now)
-        results=[{**base,'sku':str(i),'score':30-i} for i in range(7)]
+        results=[{**base,'sku':str(i),'shop':'shop'+str(i),'score':30-i} for i in range(7)]
         results.append({**results[0],'score':10})
         with tempfile.TemporaryDirectory() as d:
             c=r.database(d)
             slate=r.select_slate(results,c,lambda item:item['score'])
-            self.assertEqual([s['sku'] for s in slate],['0','1','2','3','4'])
+            self.assertEqual([s['sku'] for s in slate],['0','1','2'])
             post=r.render_slate(slate,{str(i):{'name':'Product '+str(i)} for i in range(7)}, {'units':[]},'가격 메리트')
-            for i in range(5):
+            for i in range(3):
                 self.assertIn('Product '+str(i),post['post'])
             self.assertNotIn('Product 5',post['post'])
-            self.assertEqual(post['post'].count('우리 가게 tomato&potato (totato2203-r3) 판매 중:'),1)
+            self.assertTrue(post['post'].splitlines()[-1].startswith('광고 | tomato&potato:'))
             self.assertIn('30.0%',post['post'])
             c.close()
     def test_fewer_than_four_evidence_backed_products_do_not_publish(self):
@@ -77,7 +77,17 @@ class RecommendationTests(unittest.TestCase):
                  patch.object(r,'urlopen',return_value=io.BytesIO(json.dumps(shops).encode())), \
                  patch.object(r,'fetch_quotes',new=AsyncMock(return_value=quotes)):
                 result=r.tick(md,enabled=True)
-            self.assertEqual(result['status'],'insufficient_evidence_for_four')
+            self.assertEqual(result['status'],'insufficient_evidence_for_three_plus_three')
             self.assertFalse((md/'outbox.jsonl').exists())
+    def test_exclusions_use_actual_recent_evidence_and_no_positive_overlap(self):
+        f=r.features(self.events,2,[],'x',self.now)
+        shops=[{'name':'bad','url':'http://bad'},{'name':'expired','url':'http://expired'}]
+        audits={'http://bad':{'avoid_until':self.now+100,'reason':'receipt violation: price exceeds offer'},
+                'http://expired':{'avoid_until':self.now-1,'reason':'receipt violation: price exceeds offer'}}
+        quotes=[{'sku':'x','shop':name,'url':'http://'+name,'price':price,'at':at}
+                for name,price,at in [('expensive',150,self.now),('fair',105,self.now),
+                                     ('stale',200,self.now-301),('positive',200,self.now)]]
+        excluded=r.purchase_exclusions(quotes,{'x':f},audits,shops,[{'shop':'positive'}],self.now)
+        self.assertEqual({s['shop'] for s in excluded},{'bad','expensive'})
 if __name__=='__main__':
     unittest.main()

@@ -16,7 +16,10 @@ class PromotionTests(unittest.TestCase):
         self.assertIn('정산 1건', post['post'])
         self.assertNotIn('만료상품', post['post'])
         self.assertEqual(post['refs'], [1])
-        self.assertIsNone(promotion({'units': []}, [], 1000))
+        self.assertIn('감사',promotion({'units': []}, [], 1000)['post'])
+        for edition in range(3):
+            self.assertNotIn('상품X',promotion(self.inv,[],1000,edition)['post'])
+            self.assertNotIn('현재 판매 재고',promotion(self.inv,[],1000,edition)['post'])
 
     def test_no_popularity_or_sales_invented(self):
         text = promotion(self.inv, [], 1000, 2)['post']

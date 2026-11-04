@@ -18,8 +18,8 @@ from shop_profit import DISPLAY
 NAME='totato2203-r3'
 MARKER=f'[매수 기회 포착 | {DISPLAY}]'
 INTERVAL=300
-MAX_RECOMMENDATIONS=5
-MIN_RECOMMENDATIONS=4
+MAX_RECOMMENDATIONS=3
+MIN_RECOMMENDATIONS=3
 MAX_QUOTES=24
 
 
@@ -150,9 +150,10 @@ def select_slate(results,c,priority,limit=MAX_RECOMMENDATIONS):
     selected=[]
     seen=set()
     for r in sorted(results,key=lambda r:-priority(r)):
-        if r['sku'] in seen:
+        if r['shop'] in seen:
             continue
-        previous=c.execute('select data from publications where sku=? order by at desc limit 1',(r['sku'],)).fetchone()
+        previous=next((row for row in c.execute('select data from publications where sku=? order by at desc',(r['sku'],))
+                       if json.loads(row[0]).get('shop')==r['shop']),None)
         if previous:
             old=json.loads(previous[0])
             meaningful=(abs(r['price']/old['price']-1)>=.02 or
@@ -160,14 +161,41 @@ def select_slate(results,c,priority,limit=MAX_RECOMMENDATIONS):
             if not meaningful:
                 continue
         selected.append(r)
-        seen.add(r['sku'])
+        seen.add(r['shop'])
         if len(selected)==limit:
             break
     return selected
 
 
-def render_slate(selected,catalog,inventory,style):
-    text=[f'{MARKER} {style} · 근거 확인 상품 {len(selected)}개']
+def purchase_exclusions(quotes,metrics,audits,shops,selected,now):
+    positives={r['shop'] for r in selected}
+    by_url={s['url']:s for s in shops}
+    risks={}
+    for url,audit in audits.items():
+        shop=by_url.get(url)
+        if not shop or shop['name'] in positives or audit.get('avoid_until',0)<=now:
+            continue
+        if not audit.get('reason','').startswith('receipt violation:'):
+            continue
+        risks[shop['name']]={'shop':shop['name'],'url':url,'reason':
+            '자체 구매 검증에서 요청 상품·태스크 또는 합의 금액과 영수증이 일치하지 않은 기록. 재확인 전 구매 제외.',
+            'evidence':audit['reason'],'priority':100,'refs':[]}
+    for q in quotes:
+        f=metrics.get(q['sku'])
+        if not f or q['shop'] in positives or now-q['at']>300 or q['at']>now:
+            continue
+        premium=q['price']/f['median']-1
+        if premium<.2:
+            continue
+        risk={'shop':q['shop'],'url':q['url'],'priority':premium*100,'refs':f['refs'][:2],
+              'reason':f"{q['sku']} 확인 호가 {q['price']:,.0f}, 관측 중앙값 {f['median']:,.0f}보다 {premium*100:.1f}% 높음. 품질 조건을 비교할 때까지 이 견적 구매 보류."}
+        if q['shop'] not in risks or risks[q['shop']]['priority']<risk['priority']:
+            risks[q['shop']]=risk
+    return sorted(risks.values(),key=lambda r:-r['priority'])[:3]
+
+
+def render_slate(selected,catalog,inventory,style,exclusions=()):
+    text=[f'{MARKER} {style}',f'지금 구매를 검토할 가게 {len(selected)}곳 — 실제 견적 기준']
     refs=[]
     for i,r in enumerate(selected,1):
         trend=f"{r['medium_trend']*100:+.1f}%" if r['medium_trend'] is not None else '표본 부족'
@@ -177,10 +205,13 @@ def render_slate(selected,catalog,inventory,style):
             f"가격 추세 {trend}, 공개 재고 {r['stock']}개, 점수 {r['score']:.1f}.\n"
             f"판매처 {r['shop']}{' [우리 가게 광고]' if r['own'] else ''}: {r['url']}")
         refs.extend(r['refs'][:2])
-    text.append('문의 당시 견적입니다. 등급·보증·인증서·식품 잔여 수명과 최종 가격을 확인하고 구매 문의하세요. '
-                '가격 상승·재판매 이익을 보장하지 않습니다.')
-    text.append(f'우리 가게 {DISPLAY} ({NAME}) 판매 중: {stock_ad(inventory)}. SKU별 견적, 시장 인증서 제공, 별도 보증 미제공.')
+    text.append(f'지금 구매 제외·주의 가게 {len(exclusions)}곳 — 아래 관측 조건에 한함')
+    for i,r in enumerate(exclusions,1):
+        text.append(f"{i}. {r['shop']}: {r['reason']} {r['url']}")
+        refs.extend(r['refs'])
+    text.append('문의 당시 관측입니다. 같은 SKU도 등급·보증·잔여 수명에 따라 가격이 다를 수 있습니다. 최종 조건을 확인하세요.')
     text.append('도움이 됐다면 좋아요로 알려주세요. 반응을 다음 상세 분석 주제 선정에 참고합니다.')
+    text.append(f'광고 | {DISPLAY}: 시장 인증서 제공, SKU로 견적 문의하세요.')
     return {'post':'\n'.join(text),'as':'buyer','refs':list(dict.fromkeys(refs))[:10]}
 
 
@@ -304,26 +335,28 @@ def tick(md,enabled=False,refresh=True):
         learned=max(-3,min(3,sum(rewards)/len(rewards))) if rewards else 0
         return r['score']+(3 if r['own'] else 0)+learned
     selected=select_slate(results,c,priority)
+    exclusions=purchase_exclusions(quotes,metrics,read(md/'buyer-observations.json',{}),shops,selected,time.time())
     chosen=selected[0] if selected else None
     preview={'at':now,'quotes_checked':len(quotes),'qualified':len(results),'recommendation':chosen,
              'recommendations':selected,
+             'purchase_exclusions':exclusions,
              'feedback':[json.loads(row[0]) for row in c.execute('select feedback from publications where feedback is not null')]}
     (md/'recommendation-preview.json').write_text(json.dumps(preview,ensure_ascii=False,indent=2),encoding='utf-8')
     latest=c.execute('select max(at) from publications').fetchone()[0]
-    if len(selected)<MIN_RECOMMENDATIONS or not enabled or latest and now-latest<INTERVAL:
-        c.commit();c.close();return {'status':'insufficient_evidence_for_four' if len(selected)<MIN_RECOMMENDATIONS else 'dry_run_or_interval',
+    if len(selected)<MIN_RECOMMENDATIONS or len(exclusions)<3 or not enabled or latest and now-latest<INTERVAL:
+        c.commit();c.close();return {'status':'insufficient_evidence_for_three_plus_three' if len(selected)<MIN_RECOMMENDATIONS or len(exclusions)<3 else 'dry_run_or_interval',
                                    'recommendation_count':len(selected),**{k:preview[k] for k in ('quotes_checked','qualified')}}
     pending=lines(md/'outbox.jsonl')
     if any(p.get('as')=='buyer' and 'post' in p for p in pending):
         c.commit();c.close();return {'status':'pending_outbox'}
-    post=render_slate(selected,catalog,inv,styles)
+    post=render_slate(selected,catalog,inv,styles,exclusions)
     digest=hashlib.sha256(post['post'].encode()).hexdigest()
     if c.execute('select 1 from publications where body=?',(post['post'],)).fetchone():
         c.commit();c.close();return {'status':'duplicate'}
     # Worker holds an OS lock; journal/pending queue survive process restarts.
     for r in selected:
         c.execute('insert into publications values(?,?,?,?,?,?,null)',
-                  (digest+':'+r['sku'],now,r['sku'],styles,post['post'],json.dumps(r)))
+                  (digest+':'+r['sku']+':'+r['shop'],now,r['sku'],styles,post['post'],json.dumps(r)))
     c.commit()
     with (md/'outbox.jsonl').open('a',encoding='utf-8') as out:
         out.write(json.dumps(post,ensure_ascii=False)+'\n')

@@ -319,3 +319,25 @@ Deployment confirmation: local and public Agent Cards now return name
 count (534 before/after). The public board response still contained its older
 cached card metadata at that immediate check; the registered nickname remains
 `totato2203-r3`. The live public Agent Card is the confirmed renamed surface.
+
+## Sales-only news and three-shop comparisons
+
+Shop-role news now consists exclusively of observed 24-hour settlement counts
+and thanks, including an honest no-observed-sales message when applicable.
+Inventory lists and the rotating inventory/conditions advertisement are removed.
+
+Buyer-role recommendation posts select exactly three distinct shops rather than
+four/five distinct SKUs. Each positive entry retains actual quote/market evidence.
+A second section lists three distinct purchase-exclusion/caution shops, excluding
+positive-list shops. Evidence is either an unexpired local receipt-validation
+failure or a quote no older than five minutes at least 20% above the observed
+SKU median. The post limits the conclusion to the observed quote/conditions and
+notes possible quality differences; it does not assert that a shop is universally
+unsafe. Insufficient evidence for either list suppresses the post rather than
+inventing three names. Journal identifiers now include SKU and shop so different
+shops offering the same SKU can be tracked without primary-key conflicts.
+
+The final line is a short tomato&potato advertisement, with no inventory list.
+Nine essential tests passed (three news tests and six recommendation tests).
+The independent recommendation worker was restarted; the next restock hook
+loads sales-only shop news. Buyer, seller and inventory policies are unchanged.
