@@ -26,6 +26,7 @@ from round3 import pricing,read,lines
 from shop_profit import DISPLAY,recovery_price,recent_ledger
 from after_sales import warranty_request,warranty_offer,release_warranty
 from harness import decide
+from pricing_fastpath import counter_ask
 from policy import read_price
 CMD = "Codex"
 
@@ -155,18 +156,26 @@ class Seller(AgentExecutor):
                 await up.reject(say('The requested warranty cannot currently be funded. No purchase is authorized.'))
                 return
         reserve = price_plan["floor"]
-        if deal['offer'] is not None and deal['offer']>=reserve:
-            move={'action':'accept'}
+        if deal['offer'] is not None and deal['offer'] >= reserve:
+            # Preserve immediate profitable acceptance without invoking a model.
+            move = {'action': 'accept'}
+        elif os.environ.get('ROUND3_LLM_NEGOTIATION', '0').strip().lower() in ('1', 'true', 'yes'):
+            # Explicit opt-in for higher-cost natural-language negotiation.
+            try:
+                move = await asyncio.wait_for(decide(
+                    "seller_turn" if deal["ask"] is not None else "seller_open",
+                    {"reserve": reserve, "list_price": price_plan["ask"],
+                     "last_offer": deal["offer"], "item_id": u["sku"]},
+                    {"transcript": deal["lines"]}), timeout=12)
+            except Exception:
+                # Failure is local to this request; fall back to a safe quote.
+                move = {"action": "ask",
+                        "price": counter_ask(reserve, price_plan["ask"], deal["ask"])}
         else:
-          try:
-            move = await asyncio.wait_for(decide("seller_turn" if deal["ask"] is not None else "seller_open",
-                {"reserve": reserve, "list_price": price_plan["ask"],
-                 "last_offer": deal["offer"], "item_id": u["sku"]},
-                {"transcript": deal["lines"]}),timeout=12)
-          except Exception:
-            move = {"action": "accept" if deal["offer"] is not None and
-                    deal["offer"] >= reserve
-                    else "ask", "price": deal["ask"] or price_plan["ask"]}
+            # Default: zero Codex calls for ordinary opening quotes and counters.
+            # Signed receipt, floor checks, task continuity and checkout are unchanged.
+            move = {"action": "ask",
+                    "price": counter_ask(reserve, price_plan["ask"], deal["ask"])}
         action = (move or {}).get("action")
         if action=='reject' and deal['offer'] is not None and deal['offer']>=reserve:
             action='accept'
