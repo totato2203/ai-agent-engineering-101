@@ -231,6 +231,7 @@ def render_slate(selected,catalog,inventory,style,exclusions=(),own_quotes=()):
 
 def measure_feedback(c,ledger,forum,sent,now,inventory=None):
     own_tags=ownership_tags()
+    counts={body:n for body,n in c.execute('select body,count(*) from publications group by body')}
     for digest,at,sku,style,body,data,old in c.execute('select * from publications').fetchall():
         r=json.loads(data)
         acknowledgements=[s for s in sent if s.get('sent',{}).get('post')==body]
@@ -265,19 +266,29 @@ def measure_feedback(c,ledger,forum,sent,now,inventory=None):
             observed=median([e['data']['amount'] for e in after])
             feedback['observed_median_change']=observed/r['median']-1
             feedback['discount_gap_after']=1-r['price']/observed
-        profit_change=((feedback['shop_profit_now']-feedback['shop_profit_before'])
-                       if feedback['shop_profit_now'] is not None and feedback['shop_profit_before'] is not None else 0)
-        feedback['reward']=(post.get('likes',0)-post.get('dislikes',0)+len(own)-len(own_before)
-                            +max(-2,min(2,profit_change/100000)))
+        # One post's reactions must not become a separate full reward for every
+        # SKU it mentions. Cash movement outside its window is not post impact.
+        previous=json.loads(old) if old else {}
+        feedback['reaction_share']=1/counts[body]
+        feedback['feedback_version']=2
+        feedback['trade_reward']=len(own)-len(own_before)
+        if previous.get('mature') and previous.get('feedback_version')==2:
+            for field in ('before_15m_trades','after_15m_trades','before_own_revenue','after_own_revenue','trade_reward'):
+                feedback[field]=previous[field]
+        feedback['reward']=((post.get('likes',0)-post.get('dislikes',0))*feedback['reaction_share']
+                            +feedback['trade_reward'])
         c.execute('update publications set feedback=? where digest=?',(json.dumps(feedback),digest))
 
 
 def choose_style(c):
     values=defaultdict(list)
-    for style,feedback in c.execute('select style,feedback from publications where feedback is not null'):
+    posts=defaultdict(float)
+    for style,body,feedback in c.execute('select style,body,feedback from publications where feedback is not null'):
         f=json.loads(feedback)
         if f.get('mature'):
-            values[style].append(f['reward'])
+            posts[(style,body)]+=f['reward']
+    for (style,body),reward in posts.items():
+        values[style].append(reward)
     styles=['가격 메리트','거래량·수급 포착']
     unseen=next((s for s in styles if not values[s]),None)
     return unseen or max(styles,key=lambda s:sum(values[s])/len(values[s]))

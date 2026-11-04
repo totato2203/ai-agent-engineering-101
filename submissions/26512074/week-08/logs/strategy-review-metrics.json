@@ -1,0 +1,78 @@
+{
+  "at": 1793776195.9786642,
+  "seller": {
+    "name": "totato2203-r3",
+    "alive": true,
+    "deals": 923,
+    "visits": 6209,
+    "profit": 680440,
+    "revenue": 14166452,
+    "stars": 4.83,
+    "refunds": 0,
+    "all": 0.529
+  },
+  "buyer": {
+    "name": "totato2203-r3",
+    "alive": true,
+    "orders": 2900,
+    "deals": 1798,
+    "surplus": 42599850,
+    "paid": 0.668,
+    "served": 1716,
+    "posts": 47,
+    "forum": 0.628,
+    "all": 0.766
+  },
+  "price_arms": [
+    {
+      "arm": 0.05,
+      "attempts": 11,
+      "sales": 7,
+      "revenue": 44993.0,
+      "gross_margin": 2780.0
+    },
+    {
+      "arm": 0.15,
+      "attempts": 57,
+      "sales": 21,
+      "revenue": 214039.0,
+      "gross_margin": 30332.0
+    },
+    {
+      "arm": 0.25,
+      "attempts": 1,
+      "sales": 0,
+      "revenue": null,
+      "gross_margin": null
+    }
+  ],
+  "known_ledger_costs_partial": [
+    {
+      "kind": "expire",
+      "n": 2,
+      "amount": 13656.0,
+      "known": 2
+    },
+    {
+      "kind": "storage",
+      "n": 1,
+      "amount": 1674.0,
+      "known": 1
+    },
+    {
+      "kind": "supply",
+      "n": 64,
+      "amount": 725680.0,
+      "known": 64
+    }
+  ],
+  "new_lowball_counter_observations": 0,
+  "review_state": {
+    "last_at": 1793773407.2774951
+  },
+  "optimizer_heartbeat": {
+    "at": 1793776142.0656362,
+    "pid": 40480
+  },
+  "effect_of_latest_fixes": "not yet measured"
+}

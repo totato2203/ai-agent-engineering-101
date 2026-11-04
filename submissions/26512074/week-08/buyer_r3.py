@@ -44,8 +44,30 @@ def stated_lifetime(text):
     return float(m.group(1)) if m else None
 
 
+def checkout_feedback(payments,memory,now):
+    """Brief SKU-level cooldown after repeated, confirmed stale-stock failures.
+
+    The persisted order ID prevents old failures from restarting the cooldown
+    forever. Other products and other shops remain eligible.
+    """
+    groups={}
+    for p in payments[-100:]:
+        groups.setdefault((p.get('shop'),p.get('item')),[]).append(p)
+    for (shop,sku),rows in groups.items():
+        if not shop or not sku:continue
+        audit=memory.setdefault(shop,{})
+        cooldowns=audit.setdefault('stock_cooldowns',{})
+        if rows[-1].get('paid') is True:
+            cooldowns.pop(sku,None)
+        elif len(rows)>=2 and all(p.get('paid') is False and 'not in stock' in p.get('reason','') for p in rows[-2:]):
+            last=rows[-1].get('order')
+            if last and cooldowns.get(sku,{}).get('order')!=last:
+                cooldowns[sku]={'order':last,'until':now+300,'reason':'repeated confirmed checkout stock failures'}
+
+
 async def buy(shops,order,catalog,payments=(),memory=None):
     memory={} if memory is None else memory
+    checkout_feedback(list(payments),memory,time.time())
     result={'shop':None,'receipt':None,'stars':3,'review':'No eligible stock for acceptable SKUs.',
             'strategy_revision':'retry-v2'}
     accept={'cert':True}
@@ -57,6 +79,8 @@ async def buy(shops,order,catalog,payments=(),memory=None):
     seen=set()
     failures=[]
     for _,shop,sku,ceiling in rows:
+        if memory.get(shop['url'],{}).get('stock_cooldowns',{}).get(sku,{}).get('until',0)>time.time():
+            continue
         if shop['url'] in seen or len(seen)>=6:
             continue
         if memory.get(shop['url'],{}).get('avoid_until',0)>time.time():
