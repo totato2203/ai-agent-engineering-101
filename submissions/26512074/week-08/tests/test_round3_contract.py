@@ -76,7 +76,7 @@ class ContractTests(unittest.TestCase):
             (md/'inventory.json').write_text(json.dumps(inv))
             (md/'catalog.json').write_text(json.dumps({'x':{'kind':'goods','list_price':100}}))
             result=restock_hook(md,10000)
-            self.assertEqual(result,{'buy':[{'sku':'x','qty':1}]})
+            self.assertEqual(result,{'buy':[]})
             self.assertFalse((md/'outbox.jsonl').exists())
             self.assertTrue((md/'forum-drafts.json').exists())
 

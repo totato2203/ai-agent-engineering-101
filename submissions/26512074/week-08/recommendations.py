@@ -13,9 +13,10 @@ import sys
 import time
 from urllib.request import urlopen
 from round3 import read,lines
+from shop_profit import DISPLAY
 
 NAME='totato2203-r3'
-MARKER='[매수 기회 포착 | totato2203-r3]'
+MARKER=f'[매수 기회 포착 | {DISPLAY}]'
 INTERVAL=300
 MAX_RECOMMENDATIONS=5
 MIN_RECOMMENDATIONS=4
@@ -139,7 +140,7 @@ def render(r,catalog,inventory,style):
         f"판매처: {r['shop']} {r['url']} · {'우리 가게 상품 홍보입니다. ' if r['own'] else ''}"
         '견적과 재고는 변동되며 인증서·등급·보증·남은 유통기한을 최종 확인하세요. '
         '동일 SKU라도 품질 조건이 다를 수 있습니다. 가격 비교 후 구매 문의해 보세요.\n'
-        f"우리 가게 {NAME} 판매 중: {stock_ad(inventory)}. SKU별 견적, 시장 인증서 제공, 별도 보증 미제공.\n"
+        f"우리 가게 {DISPLAY} ({NAME}) 판매 중: {stock_ad(inventory)}. SKU별 견적, 시장 인증서 제공, 별도 보증 미제공.\n"
         '도움이 됐다면 좋아요로 알려주세요. 반응은 상세 분석 주제 선정과 지속적인 분석 개선에 참고합니다. '
         '향후 상승이나 재판매 이익을 보장하지 않습니다.')
     return {'post':text,'as':'buyer','refs':r['refs']}
@@ -178,7 +179,7 @@ def render_slate(selected,catalog,inventory,style):
         refs.extend(r['refs'][:2])
     text.append('문의 당시 견적입니다. 등급·보증·인증서·식품 잔여 수명과 최종 가격을 확인하고 구매 문의하세요. '
                 '가격 상승·재판매 이익을 보장하지 않습니다.')
-    text.append(f'우리 가게 {NAME} 판매 중: {stock_ad(inventory)}. SKU별 견적, 시장 인증서 제공, 별도 보증 미제공.')
+    text.append(f'우리 가게 {DISPLAY} ({NAME}) 판매 중: {stock_ad(inventory)}. SKU별 견적, 시장 인증서 제공, 별도 보증 미제공.')
     text.append('도움이 됐다면 좋아요로 알려주세요. 반응을 다음 상세 분석 주제 선정에 참고합니다.')
     return {'post':'\n'.join(text),'as':'buyer','refs':list(dict.fromkeys(refs))[:10]}
 

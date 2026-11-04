@@ -22,12 +22,13 @@ from a2a.server.tasks import InMemoryTaskStore, TaskUpdater
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 
 import time
-from round3 import pricing
+from round3 import pricing,read,lines
+from shop_profit import DISPLAY,recovery_price,recent_ledger
 from harness import decide
 from policy import read_price
 CMD = "Codex"
 
-NAME = "Price Alchemist Guild"
+NAME = DISPLAY
 RESERVE = {"lamp": 100, "chair": 180, "bookshelf": 260}     # Rounds 0-2 have no stock: the week-07 items
 MARKET_DIR = Path(os.environ.get("MARKET_DIR", ".market"))
 
@@ -131,13 +132,14 @@ class Seller(AgentExecutor):
         deal['seen_at']=time.time()
 
         u = deal["unit"]
-        price_plan = pricing(u, time.time())
+        price_plan = recovery_price(u,read(MARKET_DIR/'inventory.json',{}),
+                                    recent_ledger(MARKET_DIR/'ledger.jsonl',time.time()),time.time())
         if price_plan is None:
             self.open.pop(task.id, None)
             await up.reject(say("That unit expired; please request a fresh quote."))
             return
         reserve = price_plan["floor"]
-        if deal['offer'] is not None and deal['offer']>=reserve and deal['ask'] is not None and deal['offer']>=deal['ask']:
+        if deal['offer'] is not None and deal['offer']>=reserve:
             move={'action':'accept'}
         else:
           try:
@@ -200,7 +202,7 @@ def build(port):
     card = AgentCard(
         name=NAME,
         description=f"A small online shop. Ask for an item by name or SKU. A coding harness ({CMD.split()[0]}) negotiates the price.",
-        version="1.1.0",
+        version="1.2.0",
         default_input_modes=["text/plain"],
         default_output_modes=["application/json", "text/plain"],
         capabilities=AgentCapabilities(streaming=False),

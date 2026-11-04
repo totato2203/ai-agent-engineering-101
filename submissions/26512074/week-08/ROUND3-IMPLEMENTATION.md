@@ -271,3 +271,45 @@ The recommendation worker was restarted without community actions. Five-minute
 shop promotions and five-minute evidence-based four-to-five product recommendation
 analysis resume on their original roles. Recommendation posts still require
 sufficient evidence and meaningful changes. Three existing promotion tests pass.
+
+## Shop ranking recovery and tomato&potato branding
+
+The public pre-change board snapshot (logs/shop-ranking-before.json) reported
+522 shop deals, 4.84 stars, 9,377,608 revenue, -3,381,050 profit and shop ALL .328,
+versus buyer ALL .815. Inventory cost was approximately 4,722,626 with 1,618,950
+cash. A major identifiable drag is unsold procurement expense: the ranking uses
+cash balance-start-injected and does not add unsold stock value back. High ratings
+do not offset the heavily weighted profit component. The snapshot does not by
+itself establish that all inventory is unprofitable or that prices alone caused
+low conversion.
+
+shop_profit.py implements a 2,000,000 cash reserve and 1,500,000 inventory-cost
+ceiling. New buys stop above the exposure ceiling; once eligible, each run spends
+at most 250,000. Replenishment uses our shop's settled trades, a twenty-minute
+horizon and one/two-unit food/goods minimums capped at four units, instead of
+large minimum quantities inferred from market-wide sales. No historical logs or
+inventory balances are edited to improve the reported score.
+
+The seller uses observed same-SKU, same-grade settlement medians from the last
+two hours (three samples minimum). Cash recovery uses a 5% target markup when
+cash is below reserve or stock exceeds the cap, versus 15% otherwise. Quotes can
+undercut the observed median but respect a 1% acquisition margin except for the
+existing near-expiry food salvage rule. Profitable numeric offers are accepted
+immediately. Future speculative storage costs are no longer added to today's
+minimum acceptable price. Actual holding costs still affect platform profit.
+A cached bounded ledger tail avoids reparsing the entire growing ledger on every
+seller request. Lower per-unit margins trade off against faster cash recovery;
+no ranking improvement or future profit is guaranteed.
+
+Display name, Agent Card, receipts and active advertisements now use
+`tomato&potato`. The documented registration nickname format allows letters,
+numbers and dashes, not ampersands. The existing registration `totato2203-r3`
+and keys are retained so inventory, settlement history and the buyer ranking
+are not reset by creating a new identity. Public card metadata is refreshed by
+rejoining the same shop registration after the local seller restart.
+
+Essential validation: three financial-policy tests, five procurement/pricing
+tests and six existing seller/buyer contract tests passed. The active seller
+version is 1.2.0; the recommendation worker reloads branding via a restart, and
+procurement changes apply at its next subprocess invocation. See deployment
+records for observed status; post-change ranking gains remain unmeasured.

@@ -6,9 +6,9 @@ class Round3Tests(unittest.TestCase):
         self.assertEqual(forecast([r],DAY),forecast([r,r,{**r,'seq':2,'kind':'order'}],DAY))
     def test_procurement(self):
         cat={str(i):{'list_price':10000,'kind':'goods'} for i in range(20)}
-        inv={'balance':1000000,'restock':{'open':True},'units':[]}
-        self.assertEqual(sum(x['qty'] for x in procurement(inv,cat,[],DAY)['buy']),12)
-        inv['units']=[{'sku':str(i)} for i in range(12)]
+        inv={'balance':3000000,'restock':{'open':True},'units':[]}
+        self.assertEqual(sum(x['qty'] for x in procurement(inv,cat,[],DAY)['buy']),6)
+        inv['units']=[{'sku':str(i),'cost':0} for i in range(6)]
         self.assertEqual(procurement(inv,cat,[],DAY)['buy'],[])
         inv.update(balance=750000,units=[])
         self.assertEqual(procurement(inv,cat,[],DAY)['buy'],[])
@@ -25,9 +25,9 @@ class Round3Tests(unittest.TestCase):
     def test_popular_stock_target_and_spend_limit(self):
         cat={'x':{'list_price':100000,'kind':'goods'}}
         inv={'balance':5000000,'restock':{'open':True},'units':[]}
-        events=[{'seq':1,'kind':'settle','ts':DAY,'data':{'item':'x'}}]
+        events=[{'seq':1,'kind':'settle','ts':DAY,'data':{'item':'x','shop':'totato2203-r3'}}]
         buy=procurement(inv,cat,events,DAY)['buy']
-        self.assertEqual(buy,[{'sku':'x','qty':12}])
+        self.assertEqual(buy,[{'sku':'x','qty':2}])
         inv['balance']=800000
         self.assertEqual(procurement(inv,cat,events,DAY)['buy'],[])
 if __name__=='__main__':

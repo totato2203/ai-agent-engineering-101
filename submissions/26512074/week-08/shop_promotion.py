@@ -2,10 +2,11 @@
 from collections import Counter
 import json
 from pathlib import Path
+from shop_profit import DISPLAY
 
 INTERVAL = 300
 SHOP = 'totato2203-r3'
-MARKER = '[가게 소식 | totato2203-r3]'
+MARKER = f'[가게 소식 | {DISPLAY}]'
 
 
 def promotion(inventory, ledger, now, edition=0):

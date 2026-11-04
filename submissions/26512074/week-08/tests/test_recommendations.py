@@ -58,7 +58,7 @@ class RecommendationTests(unittest.TestCase):
             for i in range(5):
                 self.assertIn('Product '+str(i),post['post'])
             self.assertNotIn('Product 5',post['post'])
-            self.assertEqual(post['post'].count('우리 가게 totato2203-r3 판매 중:'),1)
+            self.assertEqual(post['post'].count('우리 가게 tomato&potato (totato2203-r3) 판매 중:'),1)
             self.assertIn('30.0%',post['post'])
             c.close()
     def test_fewer_than_four_evidence_backed_products_do_not_publish(self):

@@ -63,8 +63,11 @@ def pricing(unit, now, rate=0, competitor=None, failure=.1, warranty_hours=0):
 def procurement(inv,catalog,ledger,now):
     if inv.get('round',3)<3 or not inv.get('restock',{}).get('open',False):
         return {'buy':[]}
-    cash = min(1500000,max(0,inv.get('balance',0)-750000))
-    rates = forecast(ledger,now)
+    from shop_profit import buy_budget,own_events
+    cash = buy_budget(inv)
+    if cash<=0:
+        return {'buy':[]}
+    rates = forecast(own_events(ledger),now)
     held = Counter(u['sku'] for u in inv.get('units',[]) if u.get('grade')!='expired'
                    and (u.get('expires_at') or math.inf)>now)
     candidates = []
@@ -74,21 +77,20 @@ def procurement(inv,catalog,ledger,now):
             continue
         r = rates.get(sku,{'rate':0,'sigma':0})
         # Carry three supply cycles instead of buying for only twenty minutes.
-        horizon = 60/1440
+        horizon = 20/1440
         target = math.ceil(r['rate']*horizon+2*r['sigma']*math.sqrt(horizon))
         if r['rate']>0:
-            target=max(target,4 if p['kind']=='food' else 8)
-            if held[sku]==0:
-                target=max(target,6 if p['kind']=='food' else 12)
+            target=max(target,1 if p['kind']=='food' else 2)
+            target=min(target,4)
         if p['kind']=='food':
             target = min(target,max(1,math.floor(r['rate']*3*p.get('shelf_hours',0)/24*.45)))
-        if not rates and sum(held.values())<12:
-            target = 2
+        if not rates and sum(held.values())<6:
+            target = 1
         need = max(0,target-held[sku])
         if need:
             candidates.append((r['rate']/listed,sku,need,math.ceil(listed*.75)))
     buy=[]
-    probe_left=max(0,12-sum(held.values()))
+    probe_left=max(0,6-sum(held.values()))
     for _,sku,need,worst_cost in sorted(candidates,key=lambda x:(held[x[1]]>0,-x[0],x[3],x[1])):
         qty=min(20,need,cash//worst_cost)
         if not rates:
