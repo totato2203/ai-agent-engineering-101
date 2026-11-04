@@ -139,7 +139,7 @@ def guarded_floor(base,arm,unit,inventory,stock,ask,now,policy):
                and unit['expires_at']-now<policy['clearance_hours']*3600)
     if not clearance and ask>unit['cost']:
         stressed=inventory.get('balance',0)<policy['cash_reserve']
-        minimum_markup=.03 if stock>=4 or stressed else min(.18,max(.06,arm*.40))
+        minimum_markup=.02 if stock>=4 or stressed else min(.18,max(.02,arm*.40))
         floor=min(ask,max(floor,math.ceil(unit['cost']*(1+minimum_markup))))
     return floor
 
