@@ -134,7 +134,10 @@ def risk_cost(unit,now,inventory):
 
 def choose_quote(md,task,unit,inventory,base,now,rng=None):
     rng=rng or random
-    p=config(md);cost=unit['cost'];stock=sum(u['sku']==unit['sku'] for u in inventory.get('units',[]))
+    p=config(md);cost=unit['cost']
+    stock=sum(u['sku']==unit['sku'] and u.get('grade')!='expired'
+              and (u.get('expires_at') is None or u['expires_at']>now)
+              for u in inventory.get('units',[]))
     with db(md) as c:
         old=c.execute('select arm,ask from trials where task=?',(task,)).fetchone()
         if old:return dict(base,ask=old['ask'],arm=old['arm'])
@@ -150,7 +153,27 @@ def choose_quote(md,task,unit,inventory,base,now,rng=None):
                 and baseline.get('n',0)>=12 and s['reward']>baseline.get('reward',0)*1.1
                 and s['wins']/s['n']>=.7*baseline.get('wins',0)/max(1,baseline.get('n',0))}
         best=max(proven,key=lambda a:proven[a]['reward']) if proven else .15
-        # Sparse SKU uses a conservative prior and only 12% exploratory openings.
+        # An individual SKU is often too sparse to earn twelve samples per arm.
+        # Borrow only sufficiently replicated observations from same-kind,
+        # same-grade and similar-cost items; normalize margin by acquisition cost.
+        if not proven:
+            lo,hi=(0,5000) if cost<5000 else (5000,25000) if cost<25000 else (25000,10**15)
+            pooled=c.execute('''select arm,count(*) n,sum(settled_at is not null) wins,
+                      max(at)-min(at) span,
+                      sum(case when cost>0 then coalesce(margin,0)/cost else 0 end)
+                      / max(1,sum(min(180,max(1,coalesce(settled_at-at,180))))) reward
+                from trials where kind=? and grade=? and cost>=? and cost<? and
+                arm is not null and at between ? and ? group by arm''',
+                (unit.get('kind'),unit.get('grade'),lo,hi,now-7*86400,now-300)).fetchall()
+            grouped={r['arm']:dict(r) for r in pooled}
+            prior=grouped.get(.15,{})
+            if prior.get('n',0)>=20 and prior.get('wins',0)>=6:
+                winners={a:s for a,s in grouped.items()
+                    if a>.15 and s['n']>=12 and s['wins']>=4 and s['span']>=1800
+                    and s['reward']>prior['reward']*1.15
+                    and s['wins']/s['n']>=.7*prior['wins']/prior['n']}
+                if winners:best=max(winners,key=lambda a:winners[a]['reward'])
+        # Use sparse-SKU exploration to learn without lifting every quote.
         # Count *all* assigned trials to avoid repeatedly selecting the first
         # tied arm before the five-minute evaluation delay elapses.
         assigned={r['arm']:r['n'] for r in c.execute('select arm,count(*) n from trials where sku=? and grade=? and arm is not null and at>? group by arm',(unit['sku'],unit.get('grade'),now-7*86400))}
@@ -159,10 +182,23 @@ def choose_quote(md,task,unit,inventory,base,now,rng=None):
         if demand>=2:eligible=[a for a in eligible if a>=.25] or eligible
         arm=min(eligible,key=lambda a:(assigned.get(a,0),a)) if rng.random()<p['exploration'] else best
         ask=max(base['floor'],min(unit['list_price'],math.ceil(cost*(1+arm))))
-        if unit.get('expires_at') is not None and unit['expires_at']-now<p['clearance_hours']*3600:
+        clearance=(unit.get('expires_at') is not None
+                   and unit['expires_at']-now<p['clearance_hours']*3600)
+        if clearance:
             ask=min(ask,base['ask'])
+        elif base.get('market_samples',0)>=3 and isinstance(base.get('market_median'),(int,float)):
+            # Comparable settled prices are market evidence, not private budgets.
+            # Quote slightly above that median where the published list permits.
+            ask=max(ask,min(unit['list_price'],math.ceil(base['market_median']*1.03)))
         ask=min(unit['list_price'],ask)
         floor=min(base['floor'],ask)
+        if not clearance and ask>cost:
+            # An experimental +50% ask with a +1% floor gives away the experiment.
+            # Protect a bounded slice of its margin, with softer terms for
+            # overstocked units and cash pressure. Never exceed the public ask.
+            stressed=inventory.get('balance',0)<p['cash_reserve']
+            minimum_markup=.03 if stock>=4 or stressed else min(.18,max(.06,arm*.40))
+            floor=min(ask,max(floor,math.ceil(cost*(1+minimum_markup))))
         c.execute('insert into trials(task,sku,unit,at,arm,ask,cost,grade,stock,kind) values(?,?,?,?,?,?,?,?,?,?)',
                   (task,unit['sku'],unit.get('unit'),now,arm,ask,cost,unit.get('grade'),stock,unit.get('kind')))
     return dict(base,ask=ask,floor=floor,arm=arm)
@@ -191,8 +227,18 @@ def negotiate(md,task,deal,plan,now):
     clearance=deal['unit'].get('expires_at') is not None and deal['unit']['expires_at']-now<config(md)['clearance_hours']*3600
     if history['n']<12 and turns<=2 and offer>=floor and offer<ask*.97 and not clearance:
         return {'action':'ask','price':counter,'type':buyer_type,'reason':'one_counter_before_lowball_acceptance'}
-    if offer>=floor and (history['n']<12 or turns>=5 or counter<=offer or expected<=max(0,accept)*(1+p['counter_edge'])):
-        return {'action':'accept','type':buyer_type,'accept_ev':accept,'counter_ev':expected}
+    if offer>=floor:
+        # Accept offers near the current quote and avoid dragging out clearance.
+        if clearance or offer>=ask*.97 or turns>=5 or counter<=offer:
+            return {'action':'accept','type':buyer_type,'accept_ev':accept,'counter_ev':expected}
+        if history['n']<12:
+            # Sparse samples do not justify accepting any floor-level lowball.
+            # Allow up to two meaningful counters if the buyer is still moving.
+            if turns<=3 and (previous is None or offer>previous):
+                return {'action':'ask','price':counter,'type':buyer_type,'reason':'bounded_sparse_counter'}
+            return {'action':'accept','type':buyer_type,'accept_ev':accept,'counter_ev':expected}
+        if expected<=max(0,accept)*(1+p['counter_edge']):
+            return {'action':'accept','type':buyer_type,'accept_ev':accept,'counter_ev':expected}
     if turns>=6:return {'action':'reject','type':buyer_type}
     return {'action':'ask','price':counter,'type':buyer_type,'accept_ev':accept,'counter_ev':expected}
 
