@@ -25,7 +25,7 @@ import time
 from round3 import pricing,read,lines
 from shop_profit import DISPLAY,recovery_price,recent_ledger
 from after_sales import warranty_request,warranty_offer,release_warranty
-from harness import decide
+from optimizer import choose_quote,negotiate,agreement,observe,append
 from policy import read_price
 CMD = "Codex"
 
@@ -63,7 +63,7 @@ async def offer_price(text,ask):
     match=re.fullmatch(r'(?:I\s+)?(?:offer|accept|buy)(?:\s+(?:at|for))?\s*[:=]?\s*(\d+)[.!]?',raw,re.I)
     if match:
         return int(match.group(1))
-    return await read_price(text,role='offer',ask=ask)
+    return await read_price(text,role='offer',ask=ask,allow_model=False)
 
 
 def find_unit(text, taken=()):
@@ -98,6 +98,7 @@ class Seller(AgentExecutor):
         self.open = {}  # task id -> {"unit", "ask", "offer", "lines"}
         self.promised = set()
         self.promised_at = {}
+        self.last_observation = 0
 
     def release_stale(self,now):
         for identity,deal in list(self.open.items()):
@@ -134,39 +135,40 @@ class Seller(AgentExecutor):
             deal["lines"].append(f"buyer: {text}")
             if deal['unit'].get('kind')=='goods' and warranty_request(text):
                 deal['warranty_hours']=6
+            deal["previous_offer"] = deal["offer"]
             deal["offer"] = await offer_price(text,deal["ask"])
         deal['seen_at']=time.time()
 
         u = deal["unit"]
-        price_plan = recovery_price(u,read(MARKET_DIR/'inventory.json',{}),
-                                    recent_ledger(MARKET_DIR/'ledger.jsonl',time.time()),time.time())
+        inventory=read(MARKET_DIR/'inventory.json',{})
+        ledger=recent_ledger(MARKET_DIR/'ledger.jsonl',time.time())
+        if time.time()-self.last_observation>30:
+            observe(MARKET_DIR,inventory,ledger,time.time())
+            self.last_observation=time.time()
+        price_plan = recovery_price(u,inventory,ledger,time.time())
         if price_plan is None:
             if u.get('unit'):
                 release_warranty(MARKET_DIR,u['unit'])
             self.open.pop(task.id, None)
             await up.reject(say("That unit expired; please request a fresh quote."))
             return
+        price_plan=choose_quote(MARKET_DIR,task.id,u,inventory,price_plan,time.time())
         if deal.get('warranty_hours'):
-            price_plan['ask']=math.ceil(price_plan['ask']*1.1)
+            price_plan['ask']=min(u['list_price'],math.ceil(price_plan['ask']*1.1))
             price_plan['floor']=math.ceil(price_plan['floor']*1.1)
+            if price_plan['floor']>price_plan['ask']:
+                self.open.pop(task.id,None)
+                await up.reject(say('Warranty cannot be funded within the list price.'))
+                return
             if not warranty_offer(MARKET_DIR,u,price_plan['ask'],read(MARKET_DIR/'inventory.json',{}).get('balance',0),time.time()):
                 release_warranty(MARKET_DIR,u['unit'])
                 self.open.pop(task.id,None)
                 await up.reject(say('The requested warranty cannot currently be funded. No purchase is authorized.'))
                 return
         reserve = price_plan["floor"]
-        if deal['offer'] is not None and deal['offer']>=reserve:
-            move={'action':'accept'}
-        else:
-          try:
-            move = await asyncio.wait_for(decide("seller_turn" if deal["ask"] is not None else "seller_open",
-                {"reserve": reserve, "list_price": price_plan["ask"],
-                 "last_offer": deal["offer"], "item_id": u["sku"]},
-                {"transcript": deal["lines"]}),timeout=12)
-          except Exception:
-            move = {"action": "accept" if deal["offer"] is not None and
-                    deal["offer"] >= reserve
-                    else "ask", "price": deal["ask"] or price_plan["ask"]}
+        move=negotiate(MARKET_DIR,task.id,deal,price_plan,time.time())
+        append(MARKET_DIR/'optimization/negotiations.jsonl',
+               {'at':time.time(),'task':task.id,'sku':u['sku'],'move':move,'model_calls':0})
         action = (move or {}).get("action")
         if action=='reject' and deal['offer'] is not None and deal['offer']>=reserve:
             action='accept'
@@ -174,7 +176,8 @@ class Seller(AgentExecutor):
             print(f"[guard] accept of {deal['offer']} below cost {reserve} -> counter", flush=True)
             action, move = "counter", {"price": deal["ask"] or price_plan["ask"]}
         if action == "accept":
-            price = deal["offer"]
+            price = min(deal["offer"],u["list_price"])
+            agreement(MARKET_DIR,task.id,price)
             receipt = {"shop": NAME, "item": u["sku"], "price": price, "task": task.id}
             if u["unit"]:
                 receipt["unit"] = u["unit"]
@@ -234,8 +237,8 @@ def build(port):
     url = f"http://127.0.0.1:{port}/"
     card = AgentCard(
         name=NAME,
-        description=f"A small online shop. Ask for an item by name or SKU. A coding harness ({CMD.split()[0]}) negotiates the price.",
-        version="1.3.0",
+        description=f"A small online shop. Ask for an item by name or SKU. Deterministic inventory-aware pricing; signed receipts and certificates.",
+        version="1.4.0",
         default_input_modes=["text/plain"],
         default_output_modes=["application/json", "text/plain"],
         capabilities=AgentCapabilities(streaming=False),

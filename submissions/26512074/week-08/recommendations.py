@@ -286,6 +286,8 @@ def choose_style(c):
 def tick(md,enabled=False,refresh=True):
     md=Path(md)
     now=time.time()
+    from optimizer import config
+    interval=config(md)['forum_interval']
     inv=read(md/'inventory.json',{})
     catalog=read(md/'catalog.json',{})
     ledger=lines(md/'ledger.jsonl')
@@ -294,7 +296,7 @@ def tick(md,enabled=False,refresh=True):
     measure_feedback(c,ledger,forum,lines(md/'outbox.sent.jsonl'),now,inv)
     groups=trades(ledger,now)
     last=c.execute("select value from state where key='last_scan'").fetchone()
-    if not refresh and last and now-float(last[0])<INTERVAL:
+    if not refresh and last and now-float(last[0])<interval:
         c.commit();c.close();return {'status':'scan_interval'}
     with urlopen('https://market.ourolabs.ai/api/shops',timeout=15) as response:
         shops=json.load(response)['shops']
@@ -362,7 +364,7 @@ def tick(md,enabled=False,refresh=True):
              'feedback':[json.loads(row[0]) for row in c.execute('select feedback from publications where feedback is not null')]}
     (md/'recommendation-preview.json').write_text(json.dumps(preview,ensure_ascii=False,indent=2),encoding='utf-8')
     latest=c.execute('select max(at) from publications').fetchone()[0]
-    if not selected or not enabled or latest and now-latest<INTERVAL:
+    if not selected or not enabled or latest and now-latest<interval:
         c.commit();c.close();return {'status':'no_evidence_backed_recommendation' if not selected else 'dry_run_or_interval',
                                    'recommendation_count':len(selected),**{k:preview[k] for k in ('quotes_checked','qualified')}}
     pending=lines(md/'outbox.jsonl')

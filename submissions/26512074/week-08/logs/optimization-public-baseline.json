@@ -1,0 +1,31 @@
+{
+  "at": 1793773558.5288708,
+  "seller": {
+    "name": "totato2203-r3",
+    "all": 0.529,
+    "profit": 639621,
+    "revenue": 13907420,
+    "deals": 895,
+    "stars": 4.84,
+    "alive": true
+  },
+  "buyer": {
+    "name": "totato2203-r3",
+    "all": 0.749,
+    "surplus": 39750882,
+    "deals": 1720,
+    "forum": 0.627
+  },
+  "model_baseline": {
+    "calls_by_role": {
+      "seller_open": 275,
+      "seller_turn": 263,
+      "semantic_price_only": 8
+    },
+    "reported_usage": {},
+    "scope": "2026-11-04 operator logs before rollout, cumulative; incomplete failed usage"
+  },
+  "live_card_version": "1.4.0",
+  "keys_unchanged": true,
+  "profit_effect": "not established"
+}

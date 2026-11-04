@@ -1,0 +1,32 @@
+{
+  "at": 1793773752.6416867,
+  "branch": "week-09",
+  "focused_tests": 56,
+  "failures": 0,
+  "suites": {
+    "optimizer": 17,
+    "round3_contract": 6,
+    "shop_profit": 3,
+    "round3": 5,
+    "buyer_retry": 4,
+    "clearance_support": 5,
+    "recommendations": 6,
+    "core_payment": 10
+  },
+  "model_calls_in_zero_model_negotiation_test": 0,
+  "powerShell_syntax_errors": 0,
+  "live_checks": [
+    "same key fingerprints",
+    "public card version 1.4.0",
+    "public seller Online",
+    "public quote and cancellation without payment",
+    "optimizer heartbeat",
+    "scheduled task registered"
+  ],
+  "not_verified": [
+    "six-hour economic improvement",
+    "actual PC reboot",
+    "complete historical acquisition costs",
+    "zero loss of in-memory negotiations during initial handoff"
+  ]
+}

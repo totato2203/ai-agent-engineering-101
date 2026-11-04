@@ -64,6 +64,8 @@ def procurement(inv,catalog,ledger,now):
     if inv.get('round',3)<3 or not inv.get('restock',{}).get('open',False):
         return {'buy':[]}
     from shop_profit import buy_budget,own_events
+    from optimizer import config,db
+    policy=config()
     cash = buy_budget(inv)
     if cash<=0:
         return {'buy':[]}
@@ -86,12 +88,30 @@ def procurement(inv,catalog,ledger,now):
             target = min(target,max(1,math.floor(r['rate']*3*p.get('shelf_hours',0)/24*.45)))
         if not rates and sum(held.values())<6:
             target = 1
+        target=math.ceil(target*policy['stock_multiplier'])
         need = max(0,target-held[sku])
         if need:
-            candidates.append((r['rate']/listed,sku,need,math.ceil(listed*.75)))
+            worst=math.ceil(listed*.75)
+            own_sales=[e['data']['amount'] for e in own_events(ledger) if e.get('kind')=='settle'
+                       and (e['data'].get('sku') or e['data'].get('item'))==sku
+                       and 0<=now-e.get('ts',0)<7*DAY and isinstance(e['data'].get('amount'),(int,float))]
+            from statistics import median
+            expected=median(own_sales) if own_sales else worst*1.05
+            with db(Path(__file__).resolve().parent/'.market') as c:
+                costs=[v[0] for v in c.execute('select cost from units where sku=? order by supplied desc limit 20',(sku,))]
+            # Replacement cost is an estimate from observed acquisitions; the
+            # budget still reserves the official worst-case supply price.
+            estimated_cost=sum(costs)/len(costs) if costs else worst
+            wait=1/max(r['rate'],.1)
+            storage=estimated_cost*inv.get('storage_per_day',.01)*min(wait,7) if p['kind']=='goods' else 0
+            survival=min(1,r['rate']*p.get('shelf_hours',24)/24) if p['kind']=='food' and own_sales else 1
+            net=(expected-estimated_cost-storage)*survival-estimated_cost*(1-survival)
+            if own_sales and net<=0:continue
+            roi=net/(estimated_cost*max(wait,1/24))
+            candidates.append((roi,sku,need,worst))
     buy=[]
     probe_left=max(0,6-sum(held.values()))
-    for _,sku,need,worst_cost in sorted(candidates,key=lambda x:(held[x[1]]>0,-x[0],x[3],x[1])):
+    for _,sku,need,worst_cost in sorted(candidates,key=lambda x:(-x[0],x[3],x[1])):
         qty=min(20,need,cash//worst_cost)
         if not rates:
             qty=min(qty,probe_left)

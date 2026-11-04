@@ -25,7 +25,11 @@ def candidates(shops,order,catalog,payments=()):
             # Positive surplus if non-food survives; actual failure rates are unknown.
             ceiling=min(order['budget'],math.floor(value*.85))
             if ceiling>0:
-                rows.append((reliability*value*.15,shop,sku,ceiling))
+                history=[p['price'] for p in own if p.get('paid') and p.get('item')==sku and isinstance(p.get('price'),(int,float))]
+                from statistics import median
+                expected=min(ceiling,median(history)) if history else ceiling
+                # Beta-smoothed actual checkout success, not public star claims.
+                rows.append((reliability*max(0,value-expected),shop,sku,ceiling))
     return sorted(rows,key=lambda r:(-r[0],r[1]['url'],r[2]))
 
 
@@ -96,7 +100,10 @@ async def buy(shops,order,catalog,payments=(),memory=None):
                         failures.append(shop['name']+': stated shelf life below order requirement')
                         break
                     metadata=task.get('status',{}).get('message',{}).get('metadata',{})
-                    ask=await read_price(text,role='ask',metadata=metadata)
+                    ask=await read_price(text,role='ask',metadata=metadata,allow_model=False)
+                    audit=memory.setdefault(shop['url'],{})
+                    audit.setdefault('quotes',[]).append({'at':time.time(),'sku':sku,'ask':ask})
+                    audit['quotes']=audit['quotes'][-30:]
                     if ask is None or isinstance(ask,bool) or not math.isfinite(ask) or ask<0:
                         failures.append(shop['name']+': no usable quote')
                         break
@@ -107,6 +114,7 @@ async def buy(shops,order,catalog,payments=(),memory=None):
                     if offer==last:
                         failures.append(shop['name']+': seller refused price ceiling')
                         break
+                    audit['last_offer']=offer
                     last=offer
                     task=await client.send(str(offer),task['id'])
                 # Inspect a completed final response before proceeding elsewhere.

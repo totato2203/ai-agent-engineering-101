@@ -44,8 +44,10 @@ def exposure(inventory):
 
 
 def buy_budget(inventory):
-    return max(0,min(250000,inventory.get('balance',0)-CASH_RESERVE,
-                     INVENTORY_CAP-exposure(inventory)))
+    from optimizer import config
+    p=config()
+    return max(0,min(p['purchase_cap'],inventory.get('balance',0)-p['cash_reserve'],
+                     p['inventory_cap']-exposure(inventory)))
 
 
 def own_events(ledger):
