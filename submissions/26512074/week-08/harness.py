@@ -99,6 +99,8 @@ async def decide(role, trusted, untrusted, *, validator=None, schema=None):
     propagate to the caller, which must keep a purchase's outcome uncertain.
     """
     from optimizer import append,ROOT
+    if os.environ.get('ROUND3_ALLOW_MODEL_CALLS','0') != '1':
+        raise RuntimeError('Automated model calls are disabled; deterministic market operation remains available')
     failure = None
     for attempt in range(2):
         call_id = uuid.uuid4().hex[:12]

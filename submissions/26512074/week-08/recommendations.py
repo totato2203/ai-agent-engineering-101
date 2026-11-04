@@ -287,7 +287,9 @@ def tick(md,enabled=False,refresh=True):
     md=Path(md)
     now=time.time()
     from optimizer import config
-    interval=config(md)['forum_interval']
+    # Keep market recommendations on their original five-minute cadence;
+    # the six-hour controller must not silently suppress this service.
+    interval=INTERVAL
     inv=read(md/'inventory.json',{})
     catalog=read(md/'catalog.json',{})
     ledger=lines(md/'ledger.jsonl')
