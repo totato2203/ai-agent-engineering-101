@@ -168,7 +168,11 @@ class Seller(AgentExecutor):
         reserve = price_plan["floor"]
         move=negotiate(MARKET_DIR,task.id,deal,price_plan,time.time())
         append(MARKET_DIR/'optimization/negotiations.jsonl',
-               {'at':time.time(),'task':task.id,'sku':u['sku'],'move':move,'model_calls':0})
+               {'at':time.time(),'task':task.id,'sku':u['sku'],
+                'opening_ask':price_plan['ask'],'current_ask':deal['ask'],
+                'buyer_offer':deal['offer'],'cost':u['cost'],
+                'floor':reserve,'arm':price_plan.get('arm'),
+                'move':move,'model_calls':0})
         action = (move or {}).get("action")
         if action=='reject' and deal['offer'] is not None and deal['offer']>=reserve:
             action='accept'
